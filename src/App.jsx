@@ -21,6 +21,10 @@ const queryClient = new QueryClient({
   },
 });
 
+const ProtectedRoute = ({ children }) => {
+  return children;
+};
+
 function App() {
   const { initialize } = useAuthStore();
 

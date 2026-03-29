@@ -9,8 +9,8 @@ import { parseDriveLink } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 // Rich Text Editor Imports
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 
 // Customize the Toolbar specifically matching the user's screenshot
 const modules = {
