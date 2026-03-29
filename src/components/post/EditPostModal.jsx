@@ -104,8 +104,7 @@ const EditPostModal = ({ isOpen, onClose, post, onUpdate }) => {
       const updatedRecord = {
         content: isContentEmpty ? null : rtContent,
         image_urls: finalImageUrls,
-        drive_link: finalDriveLink || null,
-        updated_at: new Date().toISOString()
+        drive_link: finalDriveLink || null
       };
 
       const { data: updatedPost, error } = await supabase
