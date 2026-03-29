@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Search, PenSquare, User } from 'lucide-react';
+import { Home, Search, PenSquare, User, MessageSquare } from 'lucide-react';
 
 const BottomNav = () => {
   const navItems = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/search', icon: Search, label: 'Search' },
     { to: '/create', icon: PenSquare, label: 'Write' },
+    { to: '/messages', icon: MessageSquare, label: 'Messages' },
     { to: '/profile', icon: User, label: 'Profile' }
   ];
 

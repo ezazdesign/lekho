@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Link as LinkIcon, Calendar, Loader2 } from 'lucide-react';
+import { MapPin, Link as LinkIcon, Calendar, Loader2, MessageCircle, UserPlus, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/useAuthStore';
 import PostCard from '../components/post/PostCard';
 import EditProfileModal from '../components/profile/EditProfileModal';
+import { toast } from 'react-hot-toast';
 
 const Profile = () => {
   const { username } = useParams();
@@ -17,6 +18,13 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Posts');
+
+  // Follow States
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowedBy, setIsFollowedBy] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   const isOwnProfile = !username || (authProfile && authProfile.username === username);
 
@@ -36,7 +44,6 @@ const Profile = () => {
           
         if (error) {
           if (error.code === 'PGRST116') {
-             // User not found
              navigate('/');
              return;
           }
@@ -48,6 +55,9 @@ const Profile = () => {
       setProfile(targetProfile);
 
       if (targetProfile) {
+        // Fetch Follow Stats
+        await fetchFollowStats(targetProfile.id);
+
         // Fetch User Posts
         const { data: postsData, error: postsError } = await supabase
           .from('posts')
@@ -68,10 +78,56 @@ const Profile = () => {
     }
   };
 
+  const fetchFollowStats = async (targetId) => {
+    try {
+      // Followers count
+      const { count: followers } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', targetId);
+      setFollowersCount(followers || 0);
+
+      // Following count
+      const { count: following } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', targetId);
+      setFollowingCount(following || 0);
+
+      // Relationship check
+      if (authUser && authUser.id !== targetId) {
+        const { data: followingData } = await supabase.from('follows').select('follower_id').eq('follower_id', authUser.id).eq('following_id', targetId).maybeSingle();
+        setIsFollowing(!!followingData);
+
+        const { data: followedByData } = await supabase.from('follows').select('follower_id').eq('follower_id', targetId).eq('following_id', authUser.id).maybeSingle();
+        setIsFollowedBy(!!followedByData);
+      }
+    } catch (error) {
+      console.error("Error fetching follows", error);
+    }
+  };
+
   useEffect(() => {
-    if (authUser === undefined) return; // Wait until init
+    if (authUser === undefined) return;
     fetchProfileData();
   }, [username, authUser, authProfile]);
+
+  const handleFollowToggle = async () => {
+    if (!authUser) {
+      toast.error("Please login to follow users.");
+      return;
+    }
+    setIsFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await supabase.from('follows').delete().eq('follower_id', authUser.id).eq('following_id', profile.id);
+        setIsFollowing(false);
+        setFollowersCount(prev => prev - 1);
+      } else {
+        await supabase.from('follows').insert({ follower_id: authUser.id, following_id: profile.id });
+        setIsFollowing(true);
+        setFollowersCount(prev => prev + 1);
+      }
+    } catch (error) {
+      toast.error("Failed to update follow status.");
+    } finally {
+      setIsFollowLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -100,7 +156,7 @@ const Profile = () => {
 
       <div className="px-6 sm:px-8 max-w-4xl mx-auto">
         {/* Profile Header section */}
-        <div className="relative flex justify-between items-end -mt-16 sm:-mt-20 mb-6">
+        <div className="relative flex justify-between items-end -mt-16 sm:-mt-20 mb-6 flex-wrap gap-4">
           <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] border-4 border-white bg-blue-100 flex items-center justify-center font-bold text-blue-700 text-5xl overflow-hidden shadow-sm shrink-0 relative z-10">
             {profile.avatar_url ? (
               <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" />
@@ -109,23 +165,38 @@ const Profile = () => {
             )}
           </div>
           
-          <div className="flex gap-3 mb-4 sm:mb-6">
+          <div className="flex flex-wrap gap-3 sm:mb-6 z-10 w-full sm:w-auto mt-4 sm:mt-0">
             {isOwnProfile ? (
               <button 
                 onClick={() => setIsEditModalOpen(true)}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-900 px-6 py-2.5 rounded-full font-semibold transition-colors"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-900 w-full sm:w-auto px-6 py-2.5 rounded-full font-semibold transition-colors flex justify-center"
               >
                 Edit Profile
               </button>
             ) : (
-              <>
-                <button className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-6 py-2.5 rounded-full font-semibold transition-colors">
-                  Message
+              <div className="flex gap-2 w-full sm:w-auto">
+                {isFollowing && isFollowedBy && (
+                  <button 
+                    onClick={() => navigate(`/messages/${profile.username}`)}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 border border-blue-600 text-blue-600 hover:bg-blue-50 px-6 py-2.5 rounded-full font-semibold transition-colors"
+                  >
+                    <MessageCircle className="w-5 h-5" /> Message
+                  </button>
+                )}
+                <button 
+                  onClick={handleFollowToggle}
+                  disabled={isFollowLoading}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-2.5 rounded-full font-semibold transition-colors disabled:opacity-70 ${
+                    isFollowing 
+                      ? 'bg-gray-100 text-gray-900 hover:bg-red-50 hover:text-red-600' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {isFollowLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                     isFollowing ? <><UserCheck className="w-5 h-5" /> Following</> : <><UserPlus className="w-5 h-5" /> Follow</>
+                  )}
                 </button>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-full font-semibold transition-colors">
-                  Follow
-                </button>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -154,11 +225,16 @@ const Profile = () => {
 
           <div className="flex gap-6 mt-6">
             <div className="hover:underline cursor-pointer group rounded-lg transition-colors py-1">
-              <span className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">0</span> <span className="text-gray-500">Following</span>
+              <span className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{followingCount}</span> <span className="text-gray-500">Following</span>
             </div>
             <div className="hover:underline cursor-pointer group rounded-lg transition-colors py-1">
-              <span className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">0</span> <span className="text-gray-500">Followers</span>
+              <span className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{followersCount}</span> <span className="text-gray-500">Followers</span>
             </div>
+            {isFollowedBy && !isOwnProfile && (
+              <div className="flex items-center">
+                <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-1 rounded-md">Follows you</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -186,8 +262,8 @@ const Profile = () => {
             <div className="space-y-0">
               {posts.length > 0 ? (
                 posts.map(post => (
-                    <div className="-mx-6 sm:-mx-8">
-                  <PostCard key={post.id} post={post} />
+                    <div key={post.id} className="-mx-6 sm:-mx-8">
+                      <PostCard post={post} />
                     </div>
                 ))
               ) : (

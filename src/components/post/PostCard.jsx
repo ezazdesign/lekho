@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, MessageCircle, MoreHorizontal, Send, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -137,17 +138,24 @@ const PostCard = ({ post }) => {
     <article className="border-b border-gray-100 p-6 sm:p-8 bg-white hover:bg-gray-50/50 transition-colors">
       <div className="flex justify-between items-start">
         <div className="flex gap-4 w-full">
-          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700 overflow-hidden shrink-0">
+          {/* Clickable Avatar */}
+          <Link to={`/profile/${post.profiles?.username}`} className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700 overflow-hidden shrink-0 hover:ring-2 ring-blue-500 transition-all">
             {post.profiles.avatar_url ? (
               <img src={post.profiles.avatar_url} alt="Author" className="w-full h-full object-cover" />
             ) : (
               post.profiles.username?.charAt(0).toUpperCase()
             )}
-          </div>
+          </Link>
+          
           <div className="flex-1">
+            {/* Clickable Name */}
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-gray-900 text-[15px]">{post.profiles.full_name || post.profiles.username}</h3>
-              <span className="text-gray-500 text-[15px]">@{post.profiles.username}</span>
+              <Link to={`/profile/${post.profiles?.username}`} className="font-bold text-gray-900 text-[15px] hover:underline decoration-blue-500">
+                {post.profiles.full_name || post.profiles.username}
+              </Link>
+              <Link to={`/profile/${post.profiles?.username}`} className="text-gray-500 text-[15px] hover:text-blue-600 transition-colors">
+                @{post.profiles.username}
+              </Link>
               <span className="text-gray-300">•</span>
               <span className="text-gray-500 text-sm">
                 {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
@@ -212,15 +220,17 @@ const PostCard = ({ post }) => {
                   ) : comments.length > 0 ? (
                     comments.map(c => (
                       <div key={c.id} className="flex gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600 overflow-hidden shrink-0 text-xs">
+                        <Link to={`/profile/${c.profiles?.username}`} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600 overflow-hidden shrink-0 text-xs hover:ring-2 ring-blue-500 transition-all">
                           {c.profiles.avatar_url ? (
                             <img src={c.profiles.avatar_url} alt="Commenter" className="w-full h-full object-cover" />
                           ) : (
                             c.profiles.username?.charAt(0).toUpperCase()
                           )}
-                        </div>
+                        </Link>
                         <div className="bg-gray-50 rounded-2xl px-4 py-2 flex-1">
-                          <h4 className="font-bold text-[13px] text-gray-900">{c.profiles.full_name || c.profiles.username}</h4>
+                          <Link to={`/profile/${c.profiles?.username}`} className="font-bold text-[13px] text-gray-900 hover:underline">
+                            {c.profiles.full_name || c.profiles.username}
+                          </Link>
                           <p className="text-[14px] text-gray-800 font-bengali mt-0.5">{c.content}</p>
                         </div>
                       </div>

@@ -10,6 +10,7 @@ import Auth from './components/auth/Auth';
 import HomeFeed from './pages/HomeFeed';
 import Profile from './pages/Profile';
 import Search from './pages/Search';
+import Messages from './pages/Messages';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +50,8 @@ function App() {
             <Route path="create" element={<HomeFeed />} />
             <Route path="profile" element={<Profile />} />
             <Route path="profile/:username" element={<Profile />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="messages/:username" element={<Messages />} />
           </Route>
         </Routes>
       </BrowserRouter>
