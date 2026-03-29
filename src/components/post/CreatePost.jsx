@@ -61,7 +61,7 @@ const CreatePost = () => {
     setSelectedImages(selectedImages.filter((_, i) => i !== index));
   };
 
-  const isContentEmpty = !rtContent || rtContent === '<p><br></p>' || rtContent.trim() === '';
+  const isContentEmpty = !rtContent || rtContent === '<p><br></p>' || String(rtContent).trim() === '';
 
   const onSubmit = async (data) => {
     if (isContentEmpty && selectedImages.length === 0 && !data.drive_link) {
