@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Send, Loader2, Info } from 'lucide-react';
+import { ChevronLeft, Send, Loader2, Info, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/useAuthStore';
 import { formatDistanceToNow, format } from 'date-fns';
