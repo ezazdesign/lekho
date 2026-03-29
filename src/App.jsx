@@ -23,7 +23,8 @@ const queryClient = new QueryClient({
 });
 
 const ProtectedRoute = ({ children }) => {
-  const { user } = useAuthStore();
+  const { user, loading } = useAuthStore();
+  if (loading) return null; // Wait for initial session fetch
   if (!user) return <Navigate to="/auth" replace />;
   return children;
 };

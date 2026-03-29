@@ -100,24 +100,27 @@ const Messages = () => {
       if (chatError) throw chatError;
       setMessages(chatHistory || []);
 
-      // 4. Setup Real-time Subscription (Supabase)
-      const channel = supabase
-        .channel('realtime:messages')
-        .on('postgres_changes', { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'messages',
-            filter: `receiver_id=eq.${authUser.id}` 
-        }, payload => {
-            // Only add if it's from the current open chat
-            if (payload.new.sender_id === user.id) {
-                setMessages(prev => [...prev, payload.new]);
+      // 4. Fallback Polling for 'Dynamic' Chat (Because Supabase Realtime requires advanced dashboard setup)
+      const pollInterval = setInterval(async () => {
+        const { data: latestChat } = await supabase
+          .from('messages')
+          .select('*')
+          .or(`and(sender_id.eq.${authUser.id},receiver_id.eq.${user.id}),and(sender_id.eq.${user.id},receiver_id.eq.${authUser.id})`)
+          .order('created_at', { ascending: true });
+
+        if (latestChat) {
+          setMessages(prev => {
+            // Only update if there are new messages to avoid cursor jumps
+            if (latestChat.length > prev.length) {
+              return latestChat;
             }
-        })
-        .subscribe();
+            return prev;
+          });
+        }
+      }, 3000);
 
       return () => {
-        supabase.removeChannel(channel);
+        clearInterval(pollInterval);
       };
 
     } catch (error) {
