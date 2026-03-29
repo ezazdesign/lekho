@@ -48,6 +48,7 @@ function App() {
             <Route path="search" element={<Search />} />
             <Route path="create" element={<HomeFeed />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="profile/:username" element={<Profile />} />
           </Route>
         </Routes>
       </BrowserRouter>
