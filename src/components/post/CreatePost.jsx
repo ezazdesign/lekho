@@ -7,6 +7,7 @@ import { uploadToCloudinary } from '../../lib/cloudinary';
 import { useAuthStore } from '../../store/useAuthStore';
 import { parseDriveLink } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Rich Text Editor Imports
 import ReactQuill from 'react-quill-new';
@@ -37,6 +38,7 @@ const formats = [
 const CreatePost = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
   const [showDriveInput, setShowDriveInput] = useState(false);
@@ -112,6 +114,9 @@ const CreatePost = () => {
       setRtContent(""); // Reset editor
       setSelectedImages([]);
       setShowDriveInput(false);
+      
+      // Tell React Query to refetch the feed immediately!
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
       navigate('/');
     } catch (err) {
       console.error(err);
