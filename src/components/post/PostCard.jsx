@@ -7,8 +7,9 @@ import { useAuthStore } from '../../store/useAuthStore';
 import DriveLinkCard from '../shared/DriveLinkCard';
 import { toast } from 'react-hot-toast';
 import DOMPurify from 'dompurify';
+import EditPostModal from './EditPostModal';
 
-const PostCard = ({ post }) => {
+const PostCard = ({ post, onDelete, onUpdate }) => {
   const { user: authUser } = useAuthStore();
   
   const [isLiked, setIsLiked] = useState(false);
@@ -20,6 +21,11 @@ const PostCard = ({ post }) => {
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
+
+  // Post Actions Menu
+  const [showOptions, setShowOptions] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchInitialCounts();
@@ -150,7 +156,33 @@ const PostCard = ({ post }) => {
     }
   };
 
+  const handleDeletePost = async () => {
+    if (!window.confirm("Are you sure you want to delete this post? This action cannot be undone.")) return;
+    
+    setIsDeleting(true);
+    setShowOptions(false);
+    try {
+      // 1. Manually clean up relations (since we don't know if CASCADE is on)
+      await supabase.from('likes').delete().eq('post_id', post.id);
+      await supabase.from('comments').delete().eq('post_id', post.id);
+      await supabase.from('notifications').delete().eq('post_id', post.id);
+
+      // 2. Delete the post
+      const { error } = await supabase.from('posts').delete().eq('id', post.id);
+      if (error) throw error;
+
+      toast.success("Post deleted safely.");
+      if (onDelete) onDelete(post.id);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete post.");
+      setIsDeleting(false);
+    }
+  };
+
   if (!post || !post.profiles) return null;
+
+  if (isDeleting) return null; // Hide the card immediately if it's being deleted
 
   return (
     <article className="border-b border-gray-100 p-6 sm:p-8 bg-white hover:bg-gray-50/50 transition-colors">
@@ -286,10 +318,44 @@ const PostCard = ({ post }) => {
           </div>
         </div>
         
-        <button className="text-gray-400 hover:text-gray-900 p-2 rounded-full hover:bg-gray-100 transition-colors">
-          <MoreHorizontal className="w-5 h-5" />
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setShowOptions(!showOptions)}
+            className="text-gray-400 hover:text-gray-900 p-2 rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
+          
+          {showOptions && authUser && authUser.id === post.user_id && (
+            <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+              <button 
+                onClick={() => { setShowOptions(false); setIsEditModalOpen(true); }}
+                className="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Edit post
+              </button>
+              <button 
+                onClick={handleDeletePost}
+                className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
+              >
+                Delete post
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Modals */}
+      {isEditModalOpen && (
+        <EditPostModal 
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          post={post}
+          onUpdate={(updatedData) => {
+            if (onUpdate) onUpdate(updatedData);
+          }}
+        />
+      )}
     </article>
   );
 };

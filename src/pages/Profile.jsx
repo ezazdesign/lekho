@@ -268,7 +268,11 @@ const Profile = () => {
               {posts.length > 0 ? (
                 posts.map(post => (
                     <div key={post.id} className="-mx-6 sm:-mx-8">
-                      <PostCard post={post} />
+                      <PostCard 
+                        post={post} 
+                        onDelete={(deletedId) => setPosts(prev => prev.filter(p => p.id !== deletedId))}
+                        onUpdate={(updatedData) => setPosts(prev => prev.map(p => p.id === updatedData.id ? updatedData : p))}
+                      />
                     </div>
                 ))
               ) : (

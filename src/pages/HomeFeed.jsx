@@ -1,5 +1,5 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabaseClient';
 import CreatePost from '../components/post/CreatePost';
 import PostCard from '../components/post/PostCard';
@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import logo from '../assets/logo.png';
 
 const HomeFeed = () => {
+  const queryClient = useQueryClient();
   const { data: posts, isLoading, error } = useQuery({
     queryKey: ['posts'],
     queryFn: async () => {
@@ -49,7 +50,12 @@ const HomeFeed = () => {
         )}
 
         {posts?.map(post => (
-          <PostCard key={post.id} post={post} />
+          <PostCard 
+            key={post.id} 
+            post={post} 
+            onDelete={() => queryClient.invalidateQueries({ queryKey: ['posts'] })}
+            onUpdate={() => queryClient.invalidateQueries({ queryKey: ['posts'] })}
+          />
         ))}
         
         {posts?.length === 0 && (
