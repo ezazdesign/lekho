@@ -186,8 +186,8 @@ const PostCard = ({ post, onDelete, onUpdate }) => {
 
   return (
     <article className="border-b border-gray-100 p-6 sm:p-8 bg-white hover:bg-gray-50/50 transition-colors">
-      <div className="flex justify-between items-start">
-        <div className="flex gap-4 w-full">
+      <div className="flex justify-between items-start min-w-0">
+        <div className="flex gap-4 w-full min-w-0">
           {/* Clickable Avatar */}
           <Link to={`/profile/${post.profiles?.username}`} className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700 overflow-hidden shrink-0 hover:ring-2 ring-blue-500 transition-all">
             {post.profiles.avatar_url ? (
@@ -197,7 +197,7 @@ const PostCard = ({ post, onDelete, onUpdate }) => {
             )}
           </Link>
           
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             {/* Clickable Name */}
             <div className="flex items-center gap-2 flex-wrap">
               <Link to={`/profile/${post.profiles?.username}`} className="font-bold text-gray-900 text-[15px] hover:underline decoration-blue-500">
@@ -213,7 +213,7 @@ const PostCard = ({ post, onDelete, onUpdate }) => {
             </div>
             
             <div 
-              className="mt-2 text-[16px] leading-relaxed text-gray-900 font-bengali whitespace-pre-wrap prose prose-blue max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-img:rounded-xl prose-img:my-4 [&_img]:!max-w-full [&_img]:!h-auto"
+              className="mt-2 text-[16px] leading-relaxed text-gray-900 font-bengali whitespace-pre-wrap prose prose-blue max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-img:rounded-xl prose-img:my-4 [&_img]:!max-w-full [&_img]:!h-auto overflow-hidden break-words"
               dangerouslySetInnerHTML={{ __html: (typeof DOMPurify.sanitize === 'function' ? DOMPurify.sanitize(post.content || '') : (DOMPurify.default?.sanitize(post.content || '') || post.content)) }}
             />
 
