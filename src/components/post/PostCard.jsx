@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import DriveLinkCard from '../shared/DriveLinkCard';
 import { toast } from 'react-hot-toast';
+import DOMPurify from 'dompurify';
 
 const PostCard = ({ post }) => {
   const { user: authUser } = useAuthStore();
@@ -162,9 +163,10 @@ const PostCard = ({ post }) => {
               </span>
             </div>
             
-            <div className="mt-2 text-[16px] leading-relaxed text-gray-900 font-bengali whitespace-pre-wrap">
-              {post.content}
-            </div>
+            <div 
+              className="mt-2 text-[16px] leading-relaxed text-gray-900 font-bengali whitespace-pre-wrap prose prose-blue max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content || '') }}
+            />
 
             {/* Images Render */}
             {post.image_urls && post.image_urls.length > 0 && (
