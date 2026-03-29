@@ -213,7 +213,7 @@ const PostCard = ({ post, onDelete, onUpdate }) => {
             </div>
             
             <div 
-              className="mt-2 text-[16px] leading-relaxed text-gray-900 font-bengali whitespace-pre-wrap prose prose-blue max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0"
+              className="mt-2 text-[16px] leading-relaxed text-gray-900 font-bengali whitespace-pre-wrap prose prose-blue max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-img:rounded-xl prose-img:my-4 [&_img]:!max-w-full [&_img]:!h-auto"
               dangerouslySetInnerHTML={{ __html: (typeof DOMPurify.sanitize === 'function' ? DOMPurify.sanitize(post.content || '') : (DOMPurify.default?.sanitize(post.content || '') || post.content)) }}
             />
 
