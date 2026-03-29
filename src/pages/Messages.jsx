@@ -220,6 +220,8 @@ const Messages = () => {
   }
 
   // --- VIEW: ACTIVE CHAT ROOM ---
+  if (!targetUser) return null;
+
   return (
     <div className="flex flex-col h-screen max-h-[100dvh]">
       {/* Header */}
