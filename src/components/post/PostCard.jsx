@@ -93,6 +93,14 @@ const PostCard = ({ post }) => {
         await supabase.from('likes').delete().eq('post_id', post.id).eq('user_id', authUser.id);
       } else {
         await supabase.from('likes').insert({ post_id: post.id, user_id: authUser.id });
+        if (post.user_id !== authUser.id) {
+          await supabase.from('notifications').insert({
+            user_id: post.user_id,
+            sender_id: authUser.id,
+            type: 'like',
+            post_id: post.id
+          });
+        }
       }
     } catch (error) {
       // Revert UI on failure
@@ -122,6 +130,15 @@ const PostCard = ({ post }) => {
         .single();
 
       if (error) throw error;
+
+      if (post.user_id !== authUser.id) {
+        await supabase.from('notifications').insert({
+          user_id: post.user_id,
+          sender_id: authUser.id,
+          type: 'comment',
+          post_id: post.id
+        });
+      }
 
       setComments([...comments, data]);
       setCommentsCount(prev => prev + 1);

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/useAuthStore';
@@ -11,6 +11,7 @@ import HomeFeed from './pages/HomeFeed';
 import Profile from './pages/Profile';
 import Search from './pages/Search';
 import Messages from './pages/Messages';
+import Notifications from './pages/Notifications';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,8 @@ const queryClient = new QueryClient({
 });
 
 const ProtectedRoute = ({ children }) => {
+  const { user } = useAuthStore();
+  if (!user) return <Navigate to="/auth" replace />;
   return children;
 };
 
@@ -48,10 +51,10 @@ function App() {
         />
         <Routes>
           <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<Layout />}>
+          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<HomeFeed />} />
             <Route path="search" element={<Search />} />
-            <Route path="create" element={<HomeFeed />} />
+            <Route path="notifications" element={<Notifications />} />
             <Route path="profile" element={<Profile />} />
             <Route path="profile/:username" element={<Profile />} />
             <Route path="messages" element={<Messages />} />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Search, PenSquare, User, LogOut, MessageSquare } from 'lucide-react';
+import { Home, Search, Bell, User, LogOut, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import logo from '../../assets/logo.png';
 
@@ -11,7 +11,7 @@ const Sidebar = () => {
     { to: '/', icon: Home, label: 'Home' },
     { to: '/search', icon: Search, label: 'Search' },
     { to: '/messages', icon: MessageSquare, label: 'Messages' },
-    { to: '/create', icon: PenSquare, label: 'Write' },
+    { to: '/notifications', icon: Bell, label: 'Alerts' },
     { to: '/profile', icon: User, label: 'Profile' }
   ];
 

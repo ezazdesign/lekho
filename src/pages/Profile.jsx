@@ -119,6 +119,11 @@ const Profile = () => {
         setFollowersCount(prev => prev - 1);
       } else {
         await supabase.from('follows').insert({ follower_id: authUser.id, following_id: profile.id });
+        await supabase.from('notifications').insert({
+          user_id: profile.id,
+          sender_id: authUser.id,
+          type: 'follow'
+        });
         setIsFollowing(true);
         setFollowersCount(prev => prev + 1);
       }
