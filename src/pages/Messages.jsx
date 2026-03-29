@@ -179,13 +179,13 @@ const Messages = () => {
   // --- VIEW: CHAT LIST (NO USER SELECTED) ---
   if (!username) {
     return (
-      <div className="flex flex-col h-screen max-h-screen bg-white">
-        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 p-4">
+      <div className="flex flex-col bg-white min-h-screen">
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 p-4 pt-safe">
           <h1 className="text-2xl font-bold text-gray-900 font-bengali">Messages</h1>
           <p className="text-sm text-gray-500 mt-1">Chat with your mutual followers</p>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="p-4">
           {mutualFriends.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 space-y-4 pt-20">
               <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center border border-gray-100">
