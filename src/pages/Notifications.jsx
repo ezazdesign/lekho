@@ -5,12 +5,14 @@ import { useUnreadStore } from '../store/useUnreadStore';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, MessageCircle, UserPlus, Bell, Loader2 } from 'lucide-react';
+import { withTimeout } from '../lib/apiUtils';
 
 const Notifications = () => {
   const { user } = useAuthStore();
   const { clearNotifications } = useUnreadStore();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -22,17 +24,21 @@ const Notifications = () => {
 
   const fetchNotifications = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase
+      const fetchTask = supabase
         .from('notifications')
         .select('*, sender:sender_id(id, username, full_name, avatar_url), post:post_id(content)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
-      if (error) throw error;
+
+      const { data, error: fetchError } = await withTimeout(fetchTask, 15000);
+      if (fetchError) throw fetchError;
       setNotifications(data || []);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      setError(err.message || 'Failed to fetch notifications');
     } finally {
       setLoading(false);
     }
