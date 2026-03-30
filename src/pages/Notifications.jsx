@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/useAuthStore';
+import { useUnreadStore } from '../store/useUnreadStore';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, MessageCircle, UserPlus, Bell, Check, Loader2 } from 'lucide-react';
 
 const Notifications = () => {
   const { user } = useAuthStore();
+  const { clearNotifications } = useUnreadStore();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -14,6 +16,7 @@ const Notifications = () => {
     if (user) {
       fetchNotifications();
       markAllAsRead();
+      clearNotifications();
     }
   }, [user]);
 

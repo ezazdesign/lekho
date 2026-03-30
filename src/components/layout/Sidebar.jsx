@@ -1,17 +1,26 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, Search, Bell, User, LogOut, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useUnreadStore } from '../../store/useUnreadStore';
 import logo from '../../assets/logo.png';
 
 const Sidebar = () => {
-  const { signOut, profile } = useAuthStore();
+  const { signOut, profile, user } = useAuthStore();
+  const { unreadMessages, unreadNotifications, startPolling, stopPolling } = useUnreadStore();
+
+  useEffect(() => {
+    if (user) {
+      startPolling(15000); // Poll every 15s instead of 10s for performance
+    }
+    return () => stopPolling();
+  }, [user]);
 
   const navItems = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/search', icon: Search, label: 'Search' },
-    { to: '/messages', icon: MessageSquare, label: 'Messages' },
-    { to: '/notifications', icon: Bell, label: 'Alerts' },
+    { to: '/messages', icon: MessageSquare, label: 'Messages', badge: unreadMessages },
+    { to: '/notifications', icon: Bell, label: 'Alerts', badge: unreadNotifications },
     { to: '/profile', icon: User, label: 'Profile' }
   ];
 
@@ -35,7 +44,14 @@ const Sidebar = () => {
               }`
             }
           >
-            <item.icon className="w-6 h-6" />
+            <div className="relative">
+              <item.icon className="w-6 h-6" />
+              {item.badge > 0 && (
+                <div className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 border-2 border-white ring-1 ring-rose-500/10">
+                  {item.badge > 9 ? '9+' : item.badge}
+                </div>
+              )}
+            </div>
             <span className="text-lg">{item.label}</span>
           </NavLink>
         ))}

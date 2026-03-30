@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Link as LinkIcon, Calendar, Loader2, MessageCircle, UserPlus, UserCheck } from 'lucide-react';
+import { MapPin, Link as LinkIcon, Calendar, Loader2, MessageCircle, UserPlus, UserCheck, LogOut } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/useAuthStore';
@@ -11,7 +11,7 @@ import { toast } from 'react-hot-toast';
 const Profile = () => {
   const { username } = useParams();
   const navigate = useNavigate();
-  const { user: authUser, profile: authProfile } = useAuthStore();
+  const { user: authUser, profile: authProfile, signOut } = useAuthStore();
   
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -172,12 +172,22 @@ const Profile = () => {
           
           <div className="flex flex-wrap gap-3 sm:mb-6 z-10 w-full sm:w-auto mt-4 sm:mt-0">
             {isOwnProfile ? (
-              <button 
-                onClick={() => setIsEditModalOpen(true)}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-900 w-full sm:w-auto px-6 py-2.5 rounded-full font-semibold transition-colors flex justify-center"
-              >
-                Edit Profile
-              </button>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button 
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="flex-1 sm:flex-none bg-gray-100 hover:bg-gray-200 text-gray-900 px-6 py-2.5 rounded-full font-semibold transition-colors flex justify-center items-center"
+                >
+                  Edit Profile
+                </button>
+                <button 
+                  onClick={signOut}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 font-semibold transition-all"
+                  title="Log out"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="sm:hidden">Log out</span>
+                </button>
+              </div>
             ) : (
               <div className="flex gap-2 w-full sm:w-auto">
                 {isFollowing && isFollowedBy && (

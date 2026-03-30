@@ -48,21 +48,30 @@ const Auth = () => {
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
+          options: {
+            data: {
+              username: data.username,
+              fullName: data.fullName,
+            }
+          }
         });
         if (authError) throw authError;
 
         if (authData.user) {
-          const { error: profileError } = await supabase.from('profiles').insert([
+          // Use upsert to handle cases where a database trigger may have already created the profile
+          const { error: profileError } = await supabase.from('profiles').upsert([
             {
               id: authData.user.id,
               username: data.username,
               full_name: data.fullName,
             }
-          ]);
+          ], { onConflict: 'id' });
+          
           if (profileError) {
-            toast.error("Account created, but profile setup failed. Please update your profile later.");
+            console.error("Profile creation error:", profileError);
+            toast.error("Account created, but profile setup encountered an issue. You can update it later!");
           } else {
-            toast.success("Account created successfully!");
+            toast.success("Welcome to Lekho! Account created.");
           }
         }
       }

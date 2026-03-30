@@ -3,12 +3,14 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, Send, Loader2, Info, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/useAuthStore';
+import { useUnreadStore } from '../store/useUnreadStore';
 import { formatDistanceToNow, format } from 'date-fns';
 
 const Messages = () => {
   const { username } = useParams();
   const navigate = useNavigate();
   const { user: authUser } = useAuthStore();
+  const { clearMessages, fetchCounts } = useUnreadStore();
   
   const [targetUser, setTargetUser] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -18,10 +20,14 @@ const Messages = () => {
   const [mutualFriends, setMutualFriends] = useState([]);
   
   const messagesEndRef = useRef(null);
+  const realtimeChatChannelRef = useRef(null);
 
   useEffect(() => {
     if (!authUser) return;
     
+    // Always clear the badge whenever the user opens ANY messages page
+    clearMessages();
+
     if (username) {
       fetchTargetUserAndMessages();
     } else {
@@ -62,6 +68,12 @@ const Messages = () => {
       setLoading(false);
     }
   };
+  
+  const markMessagesAsRead = async (targetUsername) => {
+    // Badge is already cleared by the useEffect above via clearMessages().
+    // This function is kept as a placeholder for future is_read DB support.
+    fetchCounts();
+  };
 
   const fetchTargetUserAndMessages = async () => {
     setLoading(true);
@@ -100,27 +112,42 @@ const Messages = () => {
       if (chatError) throw chatError;
       setMessages(chatHistory || []);
 
-      // 4. Fallback Polling for 'Dynamic' Chat (Because Supabase Realtime requires advanced dashboard setup)
-      const pollInterval = setInterval(async () => {
-        const { data: latestChat } = await supabase
-          .from('messages')
-          .select('*')
-          .or(`and(sender_id.eq.${authUser.id},receiver_id.eq.${user.id}),and(sender_id.eq.${user.id},receiver_id.eq.${authUser.id})`)
-          .order('created_at', { ascending: true });
+      // 🔥 Replace polling with Supabase Realtime for instant chat updates
+      // Clean up any previous channel first
+      if (realtimeChatChannelRef.current) {
+        supabase.removeChannel(realtimeChatChannelRef.current);
+      }
 
-        if (latestChat) {
-          setMessages(prev => {
-            // Only update if there are new messages to avoid cursor jumps
-            if (latestChat.length > prev.length) {
-              return latestChat;
+      const chatChannel = supabase
+        .channel(`chat-${authUser.id}-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages' },
+          (payload) => {
+            const msg = payload.new;
+            // Only handle messages from this conversation
+            const isThisConvo =
+              (msg.sender_id === authUser.id && msg.receiver_id === user.id) ||
+              (msg.sender_id === user.id && msg.receiver_id === authUser.id);
+
+            if (isThisConvo) {
+              setMessages((prev) => {
+                // Skip if already added (avoids duplicating optimistic messages)
+                if (prev.some((m) => m.id === msg.id)) return prev;
+                return [...prev, msg];
+              });
             }
-            return prev;
-          });
-        }
-      }, 3000);
+          }
+        )
+        .subscribe();
+
+      realtimeChatChannelRef.current = chatChannel;
 
       return () => {
-        clearInterval(pollInterval);
+        if (realtimeChatChannelRef.current) {
+          supabase.removeChannel(realtimeChatChannelRef.current);
+          realtimeChatChannelRef.current = null;
+        }
       };
 
     } catch (error) {
