@@ -77,20 +77,30 @@ const Notifications = () => {
 
   const getNotificationText = (notification) => {
     const name = notification.sender?.full_name || notification.sender?.username || 'Someone';
+    
+    // Safely strip HTML tags and decode entities (&nbsp;, etc.)
+    const stripHtml = (html) => {
+      if (!html) return '';
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      return doc.body.textContent || "";
+    };
+
     const postSnippet = notification.post?.content
-      ? notification.post.content.replace(/<[^>]+>/g, '').substring(0, 40)
+      ? stripHtml(notification.post.content).substring(0, 40)
       : null;
 
     switch (notification.type) {
       case 'like':
         return (
-          <>
+          <div className="flex flex-wrap items-center gap-x-1">
             <span className="font-bold text-lekho-text">{name}</span>
-            <span className="text-lekho-text/70"> liked your post</span>
+            <span className="text-lekho-text/70">liked your post</span>
             {postSnippet && (
-              <span className="text-lekho-muted italic ml-1 text-sm">"{postSnippet}..."</span>
+              <span className="text-lekho-muted italic text-sm block w-full mt-0.5">
+                "{postSnippet}..."
+              </span>
             )}
-          </>
+          </div>
         );
       case 'comment':
         return (
