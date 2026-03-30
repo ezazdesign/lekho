@@ -7,17 +7,25 @@ import { Loader2, Feather } from 'lucide-react';
 
 const HomeFeed = () => {
   const queryClient = useQueryClient();
-  const { data: posts, isLoading, error } = useQuery({
+  const { data: posts, isPending, isError, refetch } = useQuery({
     queryKey: ['posts'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 15s timeout for the fetch
+      const fetchPromise = supabase
         .from('posts')
         .select('*, profiles (id, username, full_name, avatar_url)')
         .order('created_at', { ascending: false })
         .limit(20);
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Network request timed out')), 15000)
+      );
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
       if (error) throw error;
       return data;
     },
+    retry: 1, // Retry once automatically
   });
 
   return (
@@ -35,18 +43,28 @@ const HomeFeed = () => {
       <CreatePost />
 
       <div>
-        {isLoading && (
-          <div className="p-12 flex flex-col items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-lekho-soft flex items-center justify-center">
-              <Loader2 className="w-5 h-5 animate-spin text-lekho-primary-light" />
+        {isPending && (
+          <div className="p-12 flex flex-col items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-lekho-soft flex items-center justify-center animate-pulse">
+              <Loader2 className="w-6 h-6 animate-spin text-lekho-primary-light" />
             </div>
-            <p className="text-sm text-lekho-muted">Loading your feed...</p>
+            <p className="text-sm text-lekho-muted animate-pulse">Loading your feed...</p>
           </div>
         )}
 
-        {error && (
-          <div className="p-8 text-center">
-            <p className="text-rose-400 text-sm">Failed to load feed. Please try again.</p>
+        {isError && (
+          <div className="p-16 text-center">
+             <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-4">
+               <span className="text-2xl">⚠️</span>
+             </div>
+             <h3 className="text-lekho-text font-bold text-lg mb-2">Something went wrong</h3>
+             <p className="text-lekho-muted text-sm mb-6 px-10">Failed to load the feed. Your connection might be slow or unstable.</p>
+             <button 
+               onClick={() => refetch()}
+               className="px-8 py-2.5 bg-gradient-lekho text-white font-bold rounded-full shadow-glow-purple hover:opacity-90 transition-all"
+             >
+               Retry Now
+             </button>
           </div>
         )}
 

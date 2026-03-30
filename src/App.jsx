@@ -30,11 +30,20 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
-  const { initialize } = useAuthStore();
+  const { initialize, checkSession } = useAuthStore();
 
   useEffect(() => {
     initialize();
-  }, [initialize]);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkSession();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [initialize, checkSession]);
 
   return (
     <QueryClientProvider client={queryClient}>

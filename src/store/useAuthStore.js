@@ -7,8 +7,15 @@ export const useAuthStore = create((set) => ({
   loading: true,
 
   initialize: async () => {
+    set({ loading: true });
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Race getSession against a 10s timeout to prevent hanging on wake-up
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session fetch timed out')), 10000)
+      );
+
+      const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
       
       if (session?.user) {
         set({ user: session.user });
@@ -17,17 +24,30 @@ export const useAuthStore = create((set) => ({
         set({ user: null, profile: null, loading: false });
       }
 
-      supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (session?.user) {
-          set({ user: session.user });
-          await useAuthStore.getState().fetchProfile(session.user.id);
-        } else {
+      // Listen for auth changes (login/logout/token refresh)
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (session?.user) {
+            set({ user: session.user });
+            await useAuthStore.getState().fetchProfile(session.user.id);
+          }
+        } else if (event === 'SIGNED_OUT') {
           set({ user: null, profile: null, loading: false });
         }
       });
     } catch (error) {
       console.error('Error initializing auth:', error);
       set({ loading: false });
+    }
+  },
+
+  checkSession: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      set({ user: null, profile: null, loading: false });
+    } else if (!useAuthStore.getState().user) {
+      set({ user: session.user });
+      await useAuthStore.getState().fetchProfile(session.user.id);
     }
   },
 
