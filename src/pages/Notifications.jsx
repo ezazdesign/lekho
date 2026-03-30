@@ -75,54 +75,80 @@ const Notifications = () => {
     }
   };
 
-  const getNotificationText = (notification) => {
-    const name = notification.sender?.full_name || notification.sender?.username || 'Someone';
-    
-    // Safely strip HTML tags and decode entities (&nbsp;, etc.)
-    const stripHtml = (html) => {
-      if (!html) return '';
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      return doc.body.textContent || "";
-    };
+  // Move stripHtml outside or memoize it
+  const stripHtml = (html) => {
+    if (!html) return '';
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || "";
+  };
 
+  const getNotificationContent = (notification) => {
+    const name = notification.sender?.full_name || notification.sender?.username || 'Someone';
     const postSnippet = notification.post?.content
-      ? stripHtml(notification.post.content).substring(0, 40)
+      ? stripHtml(notification.post.content)
       : null;
 
     switch (notification.type) {
       case 'like':
         return (
-          <div className="flex flex-wrap items-center gap-x-1">
-            <span className="font-bold text-lekho-text">{name}</span>
-            <span className="text-lekho-text/70">liked your post</span>
+          <>
+            <p className="text-[14px] text-lekho-text leading-snug">
+              <span className="font-bold">{name}</span>
+              <span className="text-lekho-text/70 ms-1">liked your post</span>
+            </p>
             {postSnippet && (
-              <span className="text-lekho-muted italic text-sm block w-full mt-0.5">
-                "{postSnippet}..."
-              </span>
+              <p className="text-[13px] text-lekho-muted italic mt-0.5 line-clamp-1 break-all">
+                "{postSnippet}"
+              </p>
             )}
+          </>
+        );
+      case 'comment':
+        return (
+          <p className="text-[14px] text-lekho-text leading-snug">
+            <span className="font-bold">{name}</span>
+            <span className="text-lekho-text/70 ms-1">commented on your post</span>
+          </p>
+        );
+      case 'follow':
+        return (
+          <p className="text-[14px] text-lekho-text leading-snug">
+            <span className="font-bold">{name}</span>
+            <span className="text-lekho-text/70 ms-1">started following you</span>
+          </p>
+        );
+      default:
+        return (
+          <p className="text-[14px] text-lekho-text leading-snug">
+            <span className="font-bold">{name}</span>
+            <span className="text-lekho-text/70 ms-1">interacted with you</span>
+          </p>
+        );
+    }
+  };
+
+  const getTypeBadge = (type) => {
+    switch (type) {
+      case 'like':
+        return (
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-rose-500 border-2 border-lekho-base flex items-center justify-center">
+            <Heart className="w-2.5 h-2.5 text-white fill-white" />
           </div>
         );
       case 'comment':
         return (
-          <>
-            <span className="font-bold text-lekho-text">{name}</span>
-            <span className="text-lekho-text/70"> commented on your post</span>
-          </>
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-lekho-primary border-2 border-lekho-base flex items-center justify-center">
+            <MessageCircle className="w-2.5 h-2.5 text-white fill-white" />
+          </div>
         );
       case 'follow':
         return (
-          <>
-            <span className="font-bold text-lekho-text">{name}</span>
-            <span className="text-lekho-text/70"> started following you</span>
-          </>
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-lekho-base flex items-center justify-center">
+            <UserPlus className="w-2.5 h-2.5 text-white" />
+          </div>
         );
       default:
-        return (
-          <>
-            <span className="font-bold text-lekho-text">{name}</span>
-            <span className="text-lekho-text/70"> interacted with you</span>
-          </>
-        );
+        return null;
     }
   };
 
@@ -153,38 +179,41 @@ const Notifications = () => {
             {notifications.map((notif) => (
               <div
                 key={notif.id}
-                className={`p-4 sm:p-5 flex items-start gap-4 transition-colors hover:bg-white/[0.02] animate-fade-in ${
-                  !notif.is_read ? 'border-l-2 border-lekho-primary bg-lekho-primary/5' : ''
+                className={`p-4 sm:p-5 flex items-center gap-4 transition-colors hover:bg-white/[0.02] animate-fade-in relative ${
+                  !notif.is_read ? 'bg-lekho-primary/5' : ''
                 }`}
               >
-                {/* Type icon */}
-                {getIcon(notif.type)}
+                {!notif.is_read && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-lekho" />
+                )}
 
+                {/* Left: Avatar with Badge */}
+                <div className="relative shrink-0">
+                  <Link to={`/profile/${notif.sender?.username}`}>
+                    <div className="w-12 h-12 rounded-full bg-gradient-lekho-soft flex items-center justify-center font-bold text-lekho-primary-light overflow-hidden ring-2 ring-white/5 shadow-sm transition-transform active:scale-95">
+                      {notif.sender?.avatar_url ? (
+                        <img src={notif.sender.avatar_url} alt="Ava" className="w-full h-full object-cover" />
+                      ) : (
+                        notif.sender?.username?.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                  </Link>
+                  {getTypeBadge(notif.type)}
+                </div>
+
+                {/* Center: Content */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Link to={`/profile/${notif.sender?.username}`}>
-                      <div className="w-8 h-8 rounded-full bg-gradient-lekho-soft flex items-center justify-center font-bold text-lekho-primary-light overflow-hidden shrink-0 hover:ring-2 ring-lekho-primary/30 transition-all text-xs">
-                        {notif.sender?.avatar_url ? (
-                          <img src={notif.sender.avatar_url} alt="Ava" className="w-full h-full object-cover" />
-                        ) : (
-                          notif.sender?.username?.charAt(0).toUpperCase()
-                        )}
-                      </div>
-                    </Link>
-                  </div>
-
-                  <div className="text-[14px] leading-snug">
-                    {getNotificationText(notif)}
-                  </div>
-
-                  <div className="text-[12px] text-lekho-muted mt-1.5 font-medium">
-                    {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+                  <div className="flex flex-col">
+                    {getNotificationContent(notif)}
+                    <span className="text-[11px] text-lekho-muted mt-1 font-medium tracking-tight">
+                      {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+                    </span>
                   </div>
                 </div>
 
-                {/* Unread dot */}
+                {/* Unread dot indicator on right */}
                 {!notif.is_read && (
-                  <div className="w-2 h-2 rounded-full bg-lekho-primary shrink-0 mt-2" />
+                  <div className="w-2 h-2 rounded-full bg-gradient-lekho shadow-glow-purple shrink-0" />
                 )}
               </div>
             ))}
