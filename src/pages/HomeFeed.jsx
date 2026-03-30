@@ -5,27 +5,24 @@ import CreatePost from '../components/post/CreatePost';
 import PostCard from '../components/post/PostCard';
 import { Loader2, Feather } from 'lucide-react';
 
+import { withTimeout } from '../lib/apiUtils';
+
 const HomeFeed = () => {
   const queryClient = useQueryClient();
   const { data: posts, isPending, isError, refetch } = useQuery({
     queryKey: ['posts'],
     queryFn: async () => {
-      // 15s timeout for the fetch
-      const fetchPromise = supabase
+      // Use helper for clean timeout handling
+      const fetchTask = supabase
         .from('posts')
         .select('*, profiles (id, username, full_name, avatar_url)')
         .order('created_at', { ascending: false })
         .limit(20);
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Network request timed out')), 15000)
-      );
-
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+      const { data, error } = await withTimeout(fetchTask, 15000);
       if (error) throw error;
       return data;
     },
-    retry: 1, // Retry once automatically
   });
 
   return (

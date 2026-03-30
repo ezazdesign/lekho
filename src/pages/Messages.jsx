@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUnreadStore } from '../store/useUnreadStore';
 import { formatDistanceToNow, format } from 'date-fns';
+import { withTimeout } from '../lib/apiUtils';
 
 const Messages = () => {
   const { username } = useParams();
@@ -16,6 +17,7 @@ const Messages = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
   const [mutualFriends, setMutualFriends] = useState([]);
   
@@ -46,24 +48,29 @@ const Messages = () => {
 
   const fetchMutualFriends = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // Very naive approach for MVP: Fetch all people I follow, then check who follows me back.
-      const { data: following } = await supabase.from('follows').select('following_id').eq('follower_id', authUser.id);
-      const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', authUser.id);
-      
-      const followingIds = following?.map(f => f.following_id) || [];
-      const followerIds = followers?.map(f => f.follower_id) || [];
-      
-      const mutualIds = followingIds.filter(id => followerIds.includes(id));
+      const task = (async () => {
+        const { data: following } = await supabase.from('follows').select('following_id').eq('follower_id', authUser.id);
+        const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', authUser.id);
+        
+        const followingIds = following?.map(f => f.following_id) || [];
+        const followerIds = followers?.map(f => f.follower_id) || [];
+        
+        const mutualIds = followingIds.filter(id => followerIds.includes(id));
 
-      if (mutualIds.length > 0) {
-        const { data: friends } = await supabase.from('profiles').select('*').in('id', mutualIds);
-        setMutualFriends(friends || []);
-      } else {
-        setMutualFriends([]);
-      }
-    } catch (error) {
-      console.error("Error fetching friends:", error);
+        if (mutualIds.length > 0) {
+          const { data: friends } = await supabase.from('profiles').select('*').in('id', mutualIds);
+          return friends || [];
+        }
+        return [];
+      })();
+
+      const friends = await withTimeout(task, 15000);
+      setMutualFriends(friends);
+    } catch (err) {
+      console.error("Error fetching friends:", err);
+      setError("Unable to load chat list. Connection too slow.");
     } finally {
       setLoading(false);
     }
@@ -77,86 +84,61 @@ const Messages = () => {
 
   const fetchTargetUserAndMessages = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // 1. Get Target User
-      const { data: user, error: userError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('username', username)
-        .single();
+      const task = (async () => {
+        const { data: user, error: userError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('username', username)
+          .single();
+          
+        if (userError || !user) throw new Error("User not found");
+
+        const { data: iFollow } = await supabase.from('follows').select('*').eq('follower_id', authUser.id).eq('following_id', user.id).maybeSingle();
+        const { data: followsMe } = await supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', authUser.id).maybeSingle();
         
-      if (userError || !user) {
-        navigate('/messages');
-        return;
-      }
-      setTargetUser(user);
+        const { data: chatHistory } = await supabase
+          .from('messages')
+          .select('*')
+          .or(`and(sender_id.eq.${authUser.id},receiver_id.eq.${user.id}),and(sender_id.eq.${user.id},receiver_id.eq.${authUser.id})`)
+          .order('created_at', { ascending: true });
 
-      // 2. Double check Mutual Follow (Security/UI enforcement)
-      const { data: iFollow } = await supabase.from('follows').select('*').eq('follower_id', authUser.id).eq('following_id', user.id).maybeSingle();
-      const { data: followsMe } = await supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', authUser.id).maybeSingle();
+        return { user, iFollow, followsMe, chatHistory };
+      })();
+
+      const { user, iFollow, followsMe, chatHistory } = await withTimeout(task, 15000);
       
+      setTargetUser(user);
       if (!iFollow || !followsMe) {
-        // Not mutual!
         setTargetUser({ ...user, notMutual: true });
-        setLoading(false);
         return;
       }
-
-      // 3. Fetch Chat History
-      const { data: chatHistory, error: chatError } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`and(sender_id.eq.${authUser.id},receiver_id.eq.${user.id}),and(sender_id.eq.${user.id},receiver_id.eq.${authUser.id})`)
-        .order('created_at', { ascending: true });
-
-      if (chatError) throw chatError;
       setMessages(chatHistory || []);
-
-      // 🔥 Replace polling with Supabase Realtime for instant chat updates
-      // Clean up any previous channel first
-      if (realtimeChatChannelRef.current) {
-        supabase.removeChannel(realtimeChatChannelRef.current);
-      }
-
-      const chatChannel = supabase
-        .channel(`chat-${authUser.id}-${user.id}`)
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages' },
-          (payload) => {
-            const msg = payload.new;
-            const isThisConvo =
-              (msg.sender_id === authUser.id && msg.receiver_id === user.id) ||
-              (msg.sender_id === user.id && msg.receiver_id === authUser.id);
-
-            if (isThisConvo) {
-              // Skip messages that WE sent — already handled by optimistic UI
-              // (they get replaced via the insert .select() in handleSendMessage)
-              if (msg.sender_id === authUser.id) return;
-
-              setMessages((prev) => {
-                if (prev.some((m) => m.id === msg.id)) return prev;
-                return [...prev, msg];
-              });
-            }
-          }
-        )
-        .subscribe();
-
-      realtimeChatChannelRef.current = chatChannel;
-
-      return () => {
-        if (realtimeChatChannelRef.current) {
-          supabase.removeChannel(realtimeChatChannelRef.current);
-          realtimeChatChannelRef.current = null;
-        }
-      };
-
-    } catch (error) {
-      console.error("Error fetching chat:", error);
+      setupRealtime(user.id);
+    } catch (err) {
+      console.error("Error fetching chat:", err);
+      setError("Failed to load conversation.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const setupRealtime = (targetId) => {
+    if (realtimeChatChannelRef.current) {
+      supabase.removeChannel(realtimeChatChannelRef.current);
+    }
+    const chatChannel = supabase
+      .channel(`chat-${authUser.id}-${targetId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const msg = payload.new;
+        if (msg.sender_id === targetId || msg.receiver_id === targetId) {
+          if (msg.sender_id === authUser.id) return;
+          setMessages((prev) => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+        }
+      })
+      .subscribe();
+    realtimeChatChannelRef.current = chatChannel;
   };
 
   const handleSendMessage = async (e) => {

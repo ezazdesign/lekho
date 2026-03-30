@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
+import { withTimeout } from '../../lib/apiUtils';
 
 const modules = {
   toolbar: [
@@ -63,9 +64,16 @@ const CreatePost = () => {
     try {
       if (selectedImages.length > 0) {
         toast.loading('Uploading images...', { id: 'upload' });
-        for (const file of selectedImages) {
-          imageUrls.push(await uploadToCloudinary(file));
-        }
+        // Wrap entire upload loop as a task
+        const uploadTask = (async () => {
+          const urls = [];
+          for (const file of selectedImages) {
+            urls.push(await uploadToCloudinary(file));
+          }
+          return urls;
+        })();
+        
+        imageUrls = await withTimeout(uploadTask, 60000, 'Image upload timed out. Check your connection.');
         toast.dismiss('upload');
       }
 
@@ -78,12 +86,15 @@ const CreatePost = () => {
         finalDriveLink = parsed;
       }
 
-      const { error } = await supabase.from('posts').insert([{
+      // Add 30s timeout to Supabase insert
+      const insertTask = supabase.from('posts').insert([{
         user_id: user.id,
         content: isContentEmpty ? null : rtContent,
         image_urls: imageUrls,
         drive_link: finalDriveLink || null,
       }]);
+
+      const { error } = await withTimeout(insertTask, 30000, 'Publishing timed out. Please try again.');
 
       if (error) throw error;
 

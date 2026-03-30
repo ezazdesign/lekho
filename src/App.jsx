@@ -16,8 +16,9 @@ import Notifications from './pages/Notifications';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true, // Now standard to heal local state on wake-up
       staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1, // Auto-retry once on network failure
     },
   },
 });
