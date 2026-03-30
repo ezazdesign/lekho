@@ -61,18 +61,29 @@ const FollowListModal = ({ type, profileId, authUserId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4">
-      <div className="glass-elevated w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl max-h-[75vh] sm:max-h-[80vh] flex flex-col shadow-card animate-slide-up sm:animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 animate-fade-in overflow-hidden">
+      {/* Click backdrop to close */}
+      <div className="absolute inset-0" onClick={onClose} />
+
+      <div className="glass-elevated w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[92vh] sm:max-h-[80vh] flex flex-col shadow-card relative animate-slide-up sm:animate-scale-in">
+        {/* Drag Handle for mobile */}
+        <div className="flex justify-center pt-3.5 pb-1 sm:hidden shrink-0">
+          <div className="w-12 h-1.5 bg-white/10 rounded-full" />
+        </div>
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/[0.07] shrink-0">
-          <h3 className="font-bold text-lekho-text text-lg capitalize">{type}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-white/[0.08] rounded-full text-lekho-muted hover:text-lekho-text transition-colors">
-            <X className="w-5 h-5" />
+        <div className="flex items-center justify-between px-7 pt-4 sm:pt-6 pb-4 border-b border-white/[0.07] shrink-0">
+          <h3 className="font-bold text-lekho-text text-xl capitalize tracking-tight">{type}</h3>
+          <button
+            onClick={onClose}
+            className="p-2.5 hover:bg-white/[0.08] rounded-full text-lekho-muted hover:text-lekho-text transition-all"
+          >
+            <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* List */}
-        <div className="overflow-y-auto custom-scrollbar flex-1">
+        <div className="overflow-y-auto custom-scrollbar flex-1 px-2 pb-10 sm:pb-6">
           {loading ? (
             <div className="flex justify-center p-10">
               <Loader2 className="w-6 h-6 animate-spin text-lekho-primary-light" />
@@ -82,15 +93,15 @@ const FollowListModal = ({ type, profileId, authUserId, onClose }) => {
               <p>No {type} yet.</p>
             </div>
           ) : (
-            <div className="divide-y divide-white/[0.05]">
+            <div className="divide-y divide-white/[0.04]">
               {list.map((person) => (
-                <div key={person.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.03] transition-colors">
+                <div key={person.id} className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.03] transition-colors rounded-2xl mx-1">
                   {/* Avatar */}
                   <button
                     onClick={() => { onClose(); navigate(`/profile/${person.username}`); }}
-                    className="shrink-0"
+                    className="shrink-0 relative group"
                   >
-                    <div className="w-11 h-11 rounded-full bg-gradient-lekho-soft flex items-center justify-center font-bold text-lekho-primary-light overflow-hidden ring-2 ring-lekho-primary/20 hover:ring-lekho-primary/50 transition-all">
+                    <div className="w-12 h-12 rounded-full bg-gradient-lekho-soft flex items-center justify-center font-bold text-lekho-primary-light overflow-hidden ring-2 ring-lekho-primary/20 group-hover:ring-lekho-primary/50 transition-all">
                       {person.avatar_url ? (
                         <img src={person.avatar_url} alt={person.username} className="w-full h-full object-cover" />
                       ) : (
@@ -101,22 +112,22 @@ const FollowListModal = ({ type, profileId, authUserId, onClose }) => {
 
                   {/* Name */}
                   <div
-                    className="flex-1 min-w-0 cursor-pointer"
+                    className="flex-1 min-w-0 cursor-pointer py-1"
                     onClick={() => { onClose(); navigate(`/profile/${person.username}`); }}
                   >
-                    <p className="font-bold text-lekho-text text-[14px] truncate">{person.full_name || person.username}</p>
-                    <p className="text-lekho-muted text-[12px]">@{person.username}</p>
+                    <p className="font-bold text-lekho-text text-[15px] truncate tracking-tight">{person.full_name || person.username}</p>
+                    <p className="text-lekho-muted text-[13px]">@{person.username}</p>
                   </div>
 
-                  {/* Unfollow button — only in "following" and only for own profile */}
+                  {/* Unfollow button */}
                   {type === 'following' && authUserId === profileId && (
                     <button
                       disabled={unfollowingId === person.id}
                       onClick={() => handleUnfollow(person.id)}
-                      className="shrink-0 text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-white/[0.12] text-lekho-muted hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all disabled:opacity-50"
+                      className="shrink-0 text-[13px] font-bold px-4 py-2 rounded-xl bg-white/[0.05] border border-white/[0.1] text-lekho-muted hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all disabled:opacity-50"
                     >
                       {unfollowingId === person.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         'Unfollow'
                       )}
