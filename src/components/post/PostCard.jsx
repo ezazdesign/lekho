@@ -11,64 +11,37 @@ import EditPostModal from './EditPostModal';
 
 const PostCard = ({ post, onDelete, onUpdate }) => {
   const { user: authUser } = useAuthStore();
-  
+
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
-  
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentsCount, setCommentsCount] = useState(0);
-  const [newComment, setNewComment] = useState("");
+  const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
-
-  // Post Actions Menu
   const [showOptions, setShowOptions] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    fetchInitialCounts();
-  }, [post.id, authUser]);
+  useEffect(() => { fetchInitialCounts(); }, [post.id, authUser]);
 
   const fetchInitialCounts = async () => {
-    // Fetch total likes
-    const { count: totalLikes } = await supabase
-      .from('likes')
-      .select('*', { count: 'exact', head: true })
-      .eq('post_id', post.id);
+    const { count: totalLikes } = await supabase.from('likes').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
     setLikesCount(totalLikes || 0);
 
-    // Fetch if current user liked
     if (authUser) {
-      const { data: userLike } = await supabase
-        .from('likes')
-        .select('id')
-        .eq('post_id', post.id)
-        .eq('user_id', authUser.id)
-        .maybeSingle();
+      const { data: userLike } = await supabase.from('likes').select('id').eq('post_id', post.id).eq('user_id', authUser.id).maybeSingle();
       setIsLiked(!!userLike);
     }
 
-    // Fetch total comments
-    const { count: totalComments } = await supabase
-      .from('comments')
-      .select('*', { count: 'exact', head: true })
-      .eq('post_id', post.id);
+    const { count: totalComments } = await supabase.from('comments').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
     setCommentsCount(totalComments || 0);
   };
 
   const fetchComments = async () => {
     setIsLoadingComments(true);
-    const { data } = await supabase
-      .from('comments')
-      .select(`
-        *,
-        profiles:user_id(id, full_name, username, avatar_url)
-      `)
-      .eq('post_id', post.id)
-      .order('created_at', { ascending: true });
-    
+    const { data } = await supabase.from('comments').select('*, profiles:user_id(id, full_name, username, avatar_url)').eq('post_id', post.id).order('created_at', { ascending: true });
     if (data) setComments(data);
     setIsLoadingComments(false);
   };
@@ -76,222 +49,171 @@ const PostCard = ({ post, onDelete, onUpdate }) => {
   const toggleComments = () => {
     const newState = !showComments;
     setShowComments(newState);
-    if (newState && comments.length === 0) {
-      fetchComments();
-    }
+    if (newState && comments.length === 0) fetchComments();
   };
 
   const handleLike = async () => {
-    if (!authUser) {
-      toast.error('Please login to like this post.');
-      return;
-    }
-
-    const previousLiked = isLiked;
-    const previousCount = likesCount;
-
-    // Optimistic UI update
-    setIsLiked(!previousLiked);
-    setLikesCount(previousLiked ? previousCount - 1 : previousCount + 1);
-
+    if (!authUser) { toast.error('Please login to like.'); return; }
+    const prev = isLiked, prevCount = likesCount;
+    setIsLiked(!prev);
+    setLikesCount(prev ? prevCount - 1 : prevCount + 1);
     try {
-      if (previousLiked) {
+      if (prev) {
         await supabase.from('likes').delete().eq('post_id', post.id).eq('user_id', authUser.id);
       } else {
         await supabase.from('likes').insert({ post_id: post.id, user_id: authUser.id });
         if (post.user_id !== authUser.id) {
-          await supabase.from('notifications').insert({
-            user_id: post.user_id,
-            sender_id: authUser.id,
-            type: 'like',
-            post_id: post.id
-          });
+          await supabase.from('notifications').insert({ user_id: post.user_id, sender_id: authUser.id, type: 'like', post_id: post.id });
         }
       }
-    } catch (error) {
-      // Revert UI on failure
-      setIsLiked(previousLiked);
-      setLikesCount(previousCount);
-      toast.error('Failed to update like status.');
+    } catch {
+      setIsLiked(prev); setLikesCount(prevCount);
+      toast.error('Failed to update like.');
     }
   };
 
   const handlePostComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim() || !authUser) return;
-
     setIsSubmittingComment(true);
     try {
-      const { data, error } = await supabase
-        .from('comments')
-        .insert({
-          post_id: post.id,
-          user_id: authUser.id,
-          content: newComment.trim()
-        })
-        .select(`
-          *,
-          profiles:user_id(id, full_name, username, avatar_url)
-        `)
-        .single();
-
+      const { data, error } = await supabase.from('comments').insert({ post_id: post.id, user_id: authUser.id, content: newComment.trim() }).select('*, profiles:user_id(id, full_name, username, avatar_url)').single();
       if (error) throw error;
-
       if (post.user_id !== authUser.id) {
-        await supabase.from('notifications').insert({
-          user_id: post.user_id,
-          sender_id: authUser.id,
-          type: 'comment',
-          post_id: post.id
-        });
+        await supabase.from('notifications').insert({ user_id: post.user_id, sender_id: authUser.id, type: 'comment', post_id: post.id });
       }
-
       setComments([...comments, data]);
-      setCommentsCount(prev => prev + 1);
-      setNewComment("");
-    } catch (error) {
-      toast.error("Failed to post comment.");
+      setCommentsCount((p) => p + 1);
+      setNewComment('');
+    } catch {
+      toast.error('Failed to post comment.');
     } finally {
       setIsSubmittingComment(false);
     }
   };
 
   const handleDeletePost = async () => {
-    if (!window.confirm("Are you sure you want to delete this post? This action cannot be undone.")) return;
-    
-    setIsDeleting(true);
-    setShowOptions(false);
+    if (!window.confirm('Delete this post permanently?')) return;
+    setIsDeleting(true); setShowOptions(false);
     try {
-      // 1. Manually clean up relations (since we don't know if CASCADE is on)
       await supabase.from('likes').delete().eq('post_id', post.id);
       await supabase.from('comments').delete().eq('post_id', post.id);
       await supabase.from('notifications').delete().eq('post_id', post.id);
-
-      // 2. Delete the post
       const { error } = await supabase.from('posts').delete().eq('id', post.id);
       if (error) throw error;
-
-      toast.success("Post deleted safely.");
+      toast.success('Post deleted.');
       if (onDelete) onDelete(post.id);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to delete post.");
+    } catch {
+      toast.error('Failed to delete post.');
       setIsDeleting(false);
     }
   };
 
-  if (!post || !post.profiles) return null;
+  if (!post || !post.profiles || isDeleting) return null;
 
-  if (isDeleting) return null; // Hide the card immediately if it's being deleted
+  const sanitize = (html) => typeof DOMPurify.sanitize === 'function' ? DOMPurify.sanitize(html || '') : (DOMPurify.default?.sanitize(html || '') || html);
 
   return (
-    <article className="border-b border-gray-100 p-6 sm:p-8 bg-white hover:bg-gray-50/50 transition-colors">
+    <article className="border-b border-white/[0.05] p-5 sm:p-7 bg-transparent hover:bg-white/[0.02] transition-all duration-200 group animate-fade-in">
       <div className="flex justify-between items-start min-w-0">
-        <div className="flex gap-4 w-full min-w-0">
-          {/* Clickable Avatar */}
-          <Link to={`/profile/${post.profiles?.username}`} className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700 overflow-hidden shrink-0 hover:ring-2 ring-blue-500 transition-all">
-            {post.profiles.avatar_url ? (
-              <img src={post.profiles.avatar_url} alt="Author" className="w-full h-full object-cover" />
-            ) : (
-              post.profiles.username?.charAt(0).toUpperCase()
-            )}
+        <div className="flex gap-3.5 w-full min-w-0">
+          {/* Avatar */}
+          <Link to={`/profile/${post.profiles?.username}`} className="shrink-0">
+            <div className="w-11 h-11 rounded-full bg-gradient-lekho-soft flex items-center justify-center font-bold text-lekho-primary-light overflow-hidden ring-2 ring-transparent hover:ring-lekho-primary/40 transition-all">
+              {post.profiles.avatar_url ? (
+                <img src={post.profiles.avatar_url} alt="Author" className="w-full h-full object-cover" />
+              ) : (
+                post.profiles.username?.charAt(0).toUpperCase()
+              )}
+            </div>
           </Link>
-          
+
           <div className="flex-1 min-w-0">
-            {/* Clickable Name */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link to={`/profile/${post.profiles?.username}`} className="font-bold text-gray-900 text-[15px] hover:underline decoration-blue-500">
+            {/* Author info */}
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <Link to={`/profile/${post.profiles?.username}`} className="font-bold text-lekho-text text-[14px] hover:text-lekho-primary-light transition-colors">
                 {post.profiles.full_name || post.profiles.username}
               </Link>
-              <Link to={`/profile/${post.profiles?.username}`} className="text-gray-500 text-[15px] hover:text-blue-600 transition-colors">
+              <Link to={`/profile/${post.profiles?.username}`} className="text-lekho-muted text-[13px] hover:text-lekho-muted-light transition-colors">
                 @{post.profiles.username}
               </Link>
-              <span className="text-gray-300">•</span>
-              <span className="text-gray-500 text-sm">
+              <span className="text-lekho-muted/40">·</span>
+              <span className="text-lekho-muted text-[12px]">
                 {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
               </span>
             </div>
-            
-            <div 
-              className="mt-2 text-[16px] leading-relaxed text-gray-900 font-bengali whitespace-pre-wrap prose prose-blue max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-img:rounded-xl prose-img:my-4 [&_img]:!max-w-full [&_img]:!h-auto overflow-hidden break-words"
-              dangerouslySetInnerHTML={{ __html: (typeof DOMPurify.sanitize === 'function' ? DOMPurify.sanitize(post.content || '') : (DOMPurify.default?.sanitize(post.content || '') || post.content)) }}
+
+            {/* Content */}
+            <div
+              className="text-[15px] leading-relaxed text-lekho-text/90 font-bengali whitespace-pre-wrap prose prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-img:rounded-xl prose-img:my-4 [&_img]:!max-w-full [&_img]:!h-auto overflow-hidden break-words"
+              dangerouslySetInnerHTML={{ __html: sanitize(post.content) }}
             />
 
-            {/* Images Render */}
-            {post.image_urls && post.image_urls.length > 0 && (
-              <div className={`mt-4 grid gap-2 ${
-                post.image_urls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-              }`}>
+            {/* Images */}
+            {post.image_urls?.length > 0 && (
+              <div className={`mt-4 grid gap-2 ${post.image_urls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 {post.image_urls.map((url, i) => (
-                  <img 
-                    key={i} 
-                    src={url} 
-                    alt="Post Image" 
-                    className="rounded-2xl border border-gray-100 w-full object-cover max-h-96"
-                  />
+                  <img key={i} src={url} alt="Post" className="rounded-2xl border border-white/[0.08] w-full object-cover max-h-96" />
                 ))}
               </div>
             )}
 
-            {/* Drive Link Render */}
             {post.drive_link && <DriveLinkCard url={post.drive_link} />}
 
             {/* Action Bar */}
-            <div className="flex items-center gap-8 mt-4">
-              <button 
+            <div className="flex items-center gap-6 mt-4">
+              <button
                 onClick={handleLike}
-                className={`flex items-center gap-2 group transition-colors ${isLiked ? 'text-rose-600' : 'text-gray-500 hover:text-rose-600'}`}
+                className={`flex items-center gap-2 group/like transition-all ${isLiked ? 'text-rose-400' : 'text-lekho-muted hover:text-rose-400'}`}
               >
-                <div className={`p-2 rounded-full transition-colors ${isLiked ? 'bg-rose-50' : 'group-hover:bg-rose-50'}`}>
-                  <Heart className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} />
+                <div className={`p-1.5 rounded-full transition-all ${isLiked ? 'bg-rose-500/15' : 'group-hover/like:bg-rose-500/10'}`}>
+                  <Heart className={`w-4 h-4 transition-all ${isLiked ? 'scale-110' : ''}`} fill={isLiked ? 'currentColor' : 'none'} />
                 </div>
-                <span className="text-sm font-medium">{likesCount > 0 ? likesCount : 'Like'}</span>
+                <span className="text-[13px] font-medium">{likesCount > 0 ? likesCount : 'Like'}</span>
               </button>
-              
-              <button 
+
+              <button
                 onClick={toggleComments}
-                className={`flex items-center gap-2 group transition-colors ${showComments ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                className={`flex items-center gap-2 group/cmt transition-all ${showComments ? 'text-lekho-primary-light' : 'text-lekho-muted hover:text-lekho-primary-light'}`}
               >
-                <div className={`p-2 rounded-full transition-colors ${showComments ? 'bg-blue-50' : 'group-hover:bg-blue-50'}`}>
-                  <MessageCircle className="w-5 h-5" />
+                <div className={`p-1.5 rounded-full transition-all ${showComments ? 'bg-lekho-primary/15' : 'group-hover/cmt:bg-lekho-primary/10'}`}>
+                  <MessageCircle className="w-4 h-4" />
                 </div>
-                <span className="text-sm font-medium">{commentsCount > 0 ? commentsCount : 'Comment'}</span>
+                <span className="text-[13px] font-medium">{commentsCount > 0 ? commentsCount : 'Comment'}</span>
               </button>
             </div>
 
             {/* Comments Section */}
             {showComments && (
-              <div className="mt-4 border-t border-gray-100 pt-4">
-                {/* Comments List */}
-                <div className="space-y-4 mb-4">
+              <div className="mt-4 pt-4 border-t border-white/[0.06] animate-fade-in">
+                <div className="space-y-3 mb-4">
                   {isLoadingComments ? (
                     <div className="flex justify-center p-4">
-                      <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                      <Loader2 className="w-5 h-5 animate-spin text-lekho-muted" />
                     </div>
                   ) : comments.length > 0 ? (
-                    comments.map(c => (
+                    comments.map((c) => (
                       <div key={c.id} className="flex gap-3">
-                        <Link to={`/profile/${c.profiles?.username}`} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600 overflow-hidden shrink-0 text-xs hover:ring-2 ring-blue-500 transition-all">
-                          {c.profiles.avatar_url ? (
-                            <img src={c.profiles.avatar_url} alt="Commenter" className="w-full h-full object-cover" />
-                          ) : (
-                            c.profiles.username?.charAt(0).toUpperCase()
-                          )}
+                        <Link to={`/profile/${c.profiles?.username}`}>
+                          <div className="w-7 h-7 rounded-full bg-gradient-lekho-soft flex items-center justify-center font-bold text-lekho-primary-light text-xs overflow-hidden shrink-0">
+                            {c.profiles.avatar_url ? (
+                              <img src={c.profiles.avatar_url} alt="Commenter" className="w-full h-full object-cover" />
+                            ) : c.profiles.username?.charAt(0).toUpperCase()}
+                          </div>
                         </Link>
-                        <div className="bg-gray-50 rounded-2xl px-4 py-2 flex-1">
-                          <Link to={`/profile/${c.profiles?.username}`} className="font-bold text-[13px] text-gray-900 hover:underline">
+                        <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl px-4 py-2.5 flex-1">
+                          <Link to={`/profile/${c.profiles?.username}`} className="font-bold text-[12px] text-lekho-text hover:text-lekho-primary-light transition-colors">
                             {c.profiles.full_name || c.profiles.username}
                           </Link>
-                          <p className="text-[14px] text-gray-800 font-bengali mt-0.5">{c.content}</p>
+                          <p className="text-[13px] text-lekho-text/80 font-bengali mt-0.5">{c.content}</p>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <p className="text-center text-sm text-gray-500 py-2">No comments yet. Be the first to comment!</p>
+                    <p className="text-center text-sm text-lekho-muted py-2">No comments yet. Be the first!</p>
                   )}
                 </div>
 
-                {/* Comment Input */}
                 {authUser ? (
                   <form onSubmit={handlePostComment} className="flex gap-3 items-center">
                     <input
@@ -299,44 +221,44 @@ const PostCard = ({ post, onDelete, onUpdate }) => {
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       placeholder="Write a comment..."
-                      className="flex-1 bg-gray-50 border border-gray-200 rounded-full px-5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all font-bengali"
+                      className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-full px-5 py-2.5 text-sm text-lekho-text placeholder-lekho-muted focus:outline-none focus:ring-2 focus:ring-lekho-primary/30 focus:border-lekho-primary/40 transition-all font-bengali"
                     />
-                    <button 
+                    <button
                       type="submit"
                       disabled={!newComment.trim() || isSubmittingComment}
-                      className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:hover:bg-blue-600"
+                      className="p-2.5 bg-gradient-lekho text-white rounded-full hover:opacity-90 transition-all disabled:opacity-40"
                     >
                       {isSubmittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     </button>
                   </form>
                 ) : (
-                  <p className="text-center text-sm text-gray-400">Please login to write a comment.</p>
+                  <p className="text-center text-sm text-lekho-muted">Please login to comment.</p>
                 )}
               </div>
             )}
-            
           </div>
         </div>
-        
-        <div className="relative">
-          <button 
+
+        {/* Options Menu */}
+        <div className="relative shrink-0">
+          <button
             onClick={() => setShowOptions(!showOptions)}
-            className="text-gray-400 hover:text-gray-900 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            className="text-lekho-muted hover:text-lekho-text p-1.5 rounded-full hover:bg-white/[0.06] transition-all opacity-0 group-hover:opacity-100"
           >
             <MoreHorizontal className="w-5 h-5" />
           </button>
-          
-          {showOptions && authUser && authUser.id === post.user_id && (
-            <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
-              <button 
+
+          {showOptions && authUser?.id === post.user_id && (
+            <div className="absolute right-0 mt-1 w-44 glass rounded-2xl shadow-card py-1.5 z-50 animate-scale-in">
+              <button
                 onClick={() => { setShowOptions(false); setIsEditModalOpen(true); }}
-                className="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-lekho-text hover:bg-white/[0.06] transition-colors"
               >
                 Edit post
               </button>
-              <button 
+              <button
                 onClick={handleDeletePost}
-                className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors"
               >
                 Delete post
               </button>
@@ -345,15 +267,12 @@ const PostCard = ({ post, onDelete, onUpdate }) => {
         </div>
       </div>
 
-      {/* Modals */}
       {isEditModalOpen && (
-        <EditPostModal 
+        <EditPostModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           post={post}
-          onUpdate={(updatedData) => {
-            if (onUpdate) onUpdate(updatedData);
-          }}
+          onUpdate={(updated) => { if (onUpdate) onUpdate(updated); }}
         />
       )}
     </article>

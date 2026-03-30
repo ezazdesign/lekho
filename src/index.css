@@ -2,14 +2,192 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply bg-gray-50 text-gray-900 font-sans antialiased;
-  }
+:root {
+  --bg-base: #08080f;
+  --bg-surface: #0f0f1a;
+  --bg-elevated: #16162a;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-hover: rgba(255, 255, 255, 0.14);
+  --primary: #7c5af0;
+  --primary-light: #9b7ef8;
+  --accent: #00d4ff;
+  --text: #e8e8f5;
+  --text-muted: #6b6b8a;
+  --gradient: linear-gradient(135deg, #7c5af0, #00d4ff);
 }
 
-@layer utilities {
-  .clip-text {
-    @apply text-transparent bg-clip-text;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ─────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(124, 90, 240, 0.25); border-radius: 100px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(124, 90, 240, 0.55); }
+
+/* ── Gradient Text ─────────────────────────── */
+.gradient-text {
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glass Surfaces ────────────────────────── */
+.glass {
+  background: rgba(15, 15, 26, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+}
+
+.glass-elevated {
+  background: rgba(22, 22, 42, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.09);
+}
+
+/* ── Auth Background ───────────────────────── */
+.auth-bg {
+  background: linear-gradient(-45deg, #08080f, #0d0820, #050d20, #100820, #08080f);
+  background-size: 400% 400%;
+  animation: gradientShift 14s ease infinite;
+}
+
+/* ── Gradient Border ───────────────────────── */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--gradient);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Quill Editor Dark Theme ───────────────── */
+.editor-container .ql-container.ql-snow {
+  border: none;
+  font-family: inherit;
+  font-size: 1.0625rem;
+  min-height: 120px;
+  color: var(--text);
+  background: transparent;
+}
+.editor-container .ql-toolbar.ql-snow {
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding-left: 0;
+  padding-right: 0;
+  margin-bottom: 0.5rem;
+  background: transparent;
+}
+.editor-container .ql-toolbar.ql-snow .ql-stroke {
+  stroke: var(--text-muted);
+}
+.editor-container .ql-toolbar.ql-snow .ql-fill {
+  fill: var(--text-muted);
+}
+.editor-container .ql-toolbar.ql-snow button:hover .ql-stroke,
+.editor-container .ql-toolbar.ql-snow .ql-picker-label:hover .ql-stroke {
+  stroke: var(--primary-light);
+}
+.editor-container .ql-toolbar.ql-snow button.ql-active .ql-stroke {
+  stroke: var(--primary-light);
+}
+.editor-container .ql-toolbar.ql-snow .ql-picker-label {
+  color: var(--text-muted);
+}
+.editor-container .ql-toolbar.ql-snow .ql-picker-options {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+  border-radius: 0.75rem;
+  color: var(--text);
+}
+.editor-container .ql-editor {
+  padding: 0;
+  padding-top: 8px;
+  font-family: 'Hind Siliguri', sans-serif;
+  color: var(--text);
+  background: transparent;
+}
+.editor-container .ql-editor.ql-blank::before {
+  left: 0;
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: 1.0625rem;
+}
+.ql-editor strong { color: var(--text); }
+.ql-editor blockquote {
+  border-left: 3px solid var(--primary);
+  color: var(--text-muted);
+}
+
+/* ── Custom Scrollbar for Chat ─────────────── */
+.custom-scrollbar::-webkit-scrollbar { width: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(124, 90, 240, 0.15);
+  border-radius: 100px;
+}
+
+/* ── Keyframes ─────────────────────────────── */
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(124, 90, 240, 0.35); }
+  50% { box-shadow: 0 0 28px rgba(124, 90, 240, 0.75); }
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+/* ── Prose Dark Override ───────────────────── */
+.prose {
+  color: var(--text);
+}
+.prose h1, .prose h2, .prose h3 {
+  color: var(--text);
+}
+.prose a {
+  color: var(--primary-light);
+}
+.prose blockquote {
+  color: var(--text-muted);
+  border-left-color: var(--primary);
+}
+.prose code {
+  background: var(--bg-elevated);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 2px 6px;
 }

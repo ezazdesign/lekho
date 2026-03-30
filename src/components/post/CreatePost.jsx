@@ -8,60 +8,46 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { parseDriveLink } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-
-// Rich Text Editor Imports
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
-// Customize the Toolbar specifically matching the user's screenshot
 const modules = {
   toolbar: [
-    [{ 'header': [1, 2, 3, false] }],
+    [{ header: [1, 2, 3, false] }],
     ['bold', 'italic'],
-    [{ 'list': 'bullet' }, { 'list': 'ordered'}],
+    [{ list: 'bullet' }, { list: 'ordered' }],
     ['blockquote'],
-    [{ 'align': [] }],
+    [{ align: [] }],
     ['link'],
-    ['clean'] // format remover
+    ['clean'],
   ],
 };
 
-const formats = [
-  'header',
-  'bold', 'italic',
-  'list', 'bullet',
-  'blockquote',
-  'align',
-  'link'
-];
+const formats = ['header', 'bold', 'italic', 'list', 'bullet', 'blockquote', 'align', 'link'];
 
 const CreatePost = () => {
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
   const [showDriveInput, setShowDriveInput] = useState(false);
-  
-  // Rich Text Editor state
-  const [rtContent, setRtContent] = useState("");
+  const [rtContent, setRtContent] = useState('');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm();
   const driveLinkVal = watch('drive_link');
 
   const onImageChange = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files?.length > 0) {
       if (selectedImages.length + e.target.files.length > 4) {
-        toast.error("You can only upload up to 4 images.");
+        toast.error('You can only upload up to 4 images.');
         return;
       }
       setSelectedImages([...selectedImages, ...Array.from(e.target.files)]);
     }
   };
 
-  const removeImage = (index) => {
-    setSelectedImages(selectedImages.filter((_, i) => i !== index));
-  };
+  const removeImage = (index) => setSelectedImages(selectedImages.filter((_, i) => i !== index));
 
   const isContentEmpty = !rtContent || rtContent === '<p><br></p>' || String(rtContent).trim() === '';
 
@@ -76,118 +62,89 @@ const CreatePost = () => {
 
     try {
       if (selectedImages.length > 0) {
-        toast.loading("Uploading images...", { id: "upload" });
+        toast.loading('Uploading images...', { id: 'upload' });
         for (const file of selectedImages) {
-          const url = await uploadToCloudinary(file);
-          imageUrls.push(url);
+          imageUrls.push(await uploadToCloudinary(file));
         }
-        toast.dismiss("upload");
+        toast.dismiss('upload');
       }
 
-      // Check if user pasted a drive link in the content directly
       let finalDriveLink = data.drive_link;
       if (!finalDriveLink && !isContentEmpty) {
-         finalDriveLink = parseDriveLink(rtContent);
+        finalDriveLink = parseDriveLink(rtContent);
       } else if (finalDriveLink) {
-         const parsed = parseDriveLink(finalDriveLink);
-         if (!parsed) {
-           toast.error("Invalid Google Drive Link format.");
-           setLoading(false);
-           return;
-         }
-         finalDriveLink = parsed;
+        const parsed = parseDriveLink(finalDriveLink);
+        if (!parsed) { toast.error('Invalid Google Drive Link.'); setLoading(false); return; }
+        finalDriveLink = parsed;
       }
 
-      const { error } = await supabase.from('posts').insert([
-        {
-          user_id: user.id,
-          content: isContentEmpty ? null : rtContent,
-          image_urls: imageUrls,
-          drive_link: finalDriveLink || null
-        }
-      ]);
+      const { error } = await supabase.from('posts').insert([{
+        user_id: user.id,
+        content: isContentEmpty ? null : rtContent,
+        image_urls: imageUrls,
+        drive_link: finalDriveLink || null,
+      }]);
 
       if (error) throw error;
 
-      toast.success("Post published successfully!");
+      toast.success('Post published! ✨');
       reset();
-      setRtContent(""); // Reset editor
+      setRtContent('');
       setSelectedImages([]);
       setShowDriveInput(false);
-      
-      // Tell React Query to refetch the feed immediately!
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       navigate('/');
     } catch (err) {
       console.error(err);
-      toast.error(err.message || "Failed to create post.");
-      toast.dismiss("upload");
+      toast.error(err.message || 'Failed to create post.');
+      toast.dismiss('upload');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="border-b border-gray-100 bg-white sm:px-8 sm:py-6 p-4">
-      <div className="mb-4">
-        <h2 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-4">Create Post</h2>
+    <div className="border-b border-white/[0.06] bg-lekho-surface/60 sm:px-8 sm:py-6 p-4">
+      {/* Header Row with Avatar */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-9 h-9 rounded-full bg-gradient-lekho-soft flex items-center justify-center text-lekho-primary-light font-bold overflow-hidden shrink-0 ring-2 ring-lekho-primary/25">
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="You" className="w-full h-full object-cover" />
+          ) : (
+            profile?.username?.charAt(0).toUpperCase()
+          )}
+        </div>
+        <h2 className="text-[15px] font-bold text-lekho-text">Create Post</h2>
       </div>
+
       <form onSubmit={handleSubmit(onSubmit)}>
-        
-        {/* Rich Text Editor customized wrapping */}
+        {/* Rich Text Editor */}
         <div className="mb-4 editor-container">
-          <ReactQuill 
-            theme="snow" 
-            value={rtContent} 
-            onChange={setRtContent} 
+          <ReactQuill
+            theme="snow"
+            value={rtContent}
+            onChange={setRtContent}
             modules={modules}
             formats={formats}
             placeholder="What's on your mind? Write your thoughts..."
-            className="w-full text-lg outline-none font-bengali text-gray-900"
+            className="w-full text-lg outline-none font-bengali"
           />
         </div>
 
-        {/* Global style overrides for ReactQuill to match Tailwind look */}
-        <style dangerouslySetInnerHTML={{__html: `
-          .editor-container .ql-container.ql-snow {
-             border: none;
-             font-family: inherit;
-             font-size: 1.125rem;
-             min-height: 120px;
-          }
-          .editor-container .ql-toolbar.ql-snow {
-             border: none;
-             border-bottom: 1px solid #f3f4f6;
-             padding-left: 0;
-             padding-right: 0;
-             margin-bottom: 0.5rem;
-          }
-          .editor-container .ql-editor {
-             padding: 0;
-             padding-top: 8px;
-             font-family: '"Hind Siliguri"', sans-serif;
-          }
-          .editor-container .ql-editor.ql-blank::before {
-             left: 0;
-             font-style: normal;
-             color: #9ca3af; 
-             font-size: 1.125rem;
-          }
-        `}} />
-
+        {/* Image Previews */}
         {selectedImages.length > 0 && (
           <div className="grid grid-cols-2 gap-2 mt-4 mb-4">
             {selectedImages.map((file, i) => (
               <div key={i} className="relative group">
-                <img 
-                  src={URL.createObjectURL(file)} 
-                  alt="Upload preview" 
-                  className="w-full h-48 object-cover rounded-xl border border-gray-200"
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt="Preview"
+                  className="w-full h-48 object-cover rounded-xl border border-white/[0.08]"
                 />
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
-                  className="absolute top-2 right-2 bg-gray-900/50 hover:bg-gray-900/80 text-white p-1.5 rounded-full backdrop-blur-sm transition-colors"
+                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded-full backdrop-blur-sm transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -196,52 +153,52 @@ const CreatePost = () => {
           </div>
         )}
 
+        {/* Drive Link Input */}
         {showDriveInput && (
           <div className="mt-4 mb-4 relative">
-            <Link2 className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+            <Link2 className="absolute left-3 top-3.5 w-5 h-5 text-lekho-muted" />
             <input
-              {...register("drive_link")}
+              {...register('drive_link')}
               type="text"
-              placeholder="Paste Google Drive URL here..."
-              className="w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all text-sm"
+              placeholder="Paste Google Drive URL..."
+              className="w-full pl-10 pr-10 py-3 bg-white/[0.04] border border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-lekho-primary/30 focus:border-lekho-primary/50 transition-all text-sm text-lekho-text placeholder-lekho-muted"
             />
-            <button 
-              type="button" 
-              onClick={() => { setShowDriveInput(false); setValue("drive_link", ""); }}
-              className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-900"
+            <button
+              type="button"
+              onClick={() => { setShowDriveInput(false); setValue('drive_link', ''); }}
+              className="absolute right-3 top-3.5 text-lekho-muted hover:text-lekho-text"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-gray-100 pt-4 mt-2">
-          <div className="flex items-center gap-2">
-            <label className="cursor-pointer p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors relative group">
-              <Image className="w-[22px] h-[22px]" />
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*" 
-                className="hidden" 
-                onChange={onImageChange} 
-              />
-              <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Add Images</span>
+        {/* Action Row */}
+        <div className="flex items-center justify-between border-t border-white/[0.06] pt-4 mt-2">
+          <div className="flex items-center gap-1">
+            <label className="cursor-pointer p-2.5 text-lekho-muted hover:text-lekho-primary-light hover:bg-lekho-primary/10 rounded-xl transition-all relative group">
+              <Image className="w-5 h-5" />
+              <input type="file" multiple accept="image/*" className="hidden" onChange={onImageChange} />
+              <span className="absolute -top-9 left-1/2 -translate-x-1/2 bg-lekho-elevated border border-white/10 text-lekho-text text-[10px] py-1 px-2.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                Add Images
+              </span>
             </label>
-            <button 
+            <button
               type="button"
               onClick={() => setShowDriveInput(!showDriveInput)}
-              className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors relative group"
+              className="p-2.5 text-lekho-muted hover:text-lekho-primary-light hover:bg-lekho-primary/10 rounded-xl transition-all relative group"
             >
-              <Link2 className="w-[22px] h-[22px]" />
-              <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Attach Drive Link</span>
+              <Link2 className="w-5 h-5" />
+              <span className="absolute -top-9 left-1/2 -translate-x-1/2 bg-lekho-elevated border border-white/10 text-lekho-text text-[10px] py-1 px-2.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                Drive Link
+              </span>
             </button>
           </div>
 
           <button
             type="submit"
             disabled={loading || (isContentEmpty && selectedImages.length === 0 && !driveLinkVal)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-gradient-lekho hover:opacity-90 text-white px-6 py-2.5 rounded-2xl font-bold transition-all shadow-glow-purple disabled:opacity-40 disabled:cursor-not-allowed text-sm"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Publish
