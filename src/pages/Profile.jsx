@@ -12,14 +12,13 @@ const Profile = () => {
   const { username } = useParams();
   const navigate = useNavigate();
   const { user: authUser, profile: authProfile, signOut } = useAuthStore();
-  
+
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Posts');
 
-  // Follow States
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -32,47 +31,26 @@ const Profile = () => {
     setLoading(true);
     try {
       let targetProfile = null;
-
       if (isOwnProfile) {
         targetProfile = authProfile;
       } else {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('username', username)
-          .single();
-          
-        if (error) {
-          if (error.code === 'PGRST116') {
-             navigate('/');
-             return;
-          }
-          throw error;
-        }
+        const { data, error } = await supabase.from('profiles').select('*').eq('username', username).single();
+        if (error) { if (error.code === 'PGRST116') { navigate('/'); return; } throw error; }
         targetProfile = data;
       }
-
       setProfile(targetProfile);
-
       if (targetProfile) {
-        // Fetch Follow Stats
         await fetchFollowStats(targetProfile.id);
-
-        // Fetch User Posts
         const { data: postsData, error: postsError } = await supabase
           .from('posts')
-          .select(`
-            *,
-            profiles:user_id (id, username, full_name, avatar_url)
-          `)
+          .select('*, profiles:user_id (id, username, full_name, avatar_url)')
           .eq('user_id', targetProfile.id)
           .order('created_at', { ascending: false });
-
         if (postsError) throw postsError;
         setPosts(postsData || []);
       }
     } catch (error) {
-      console.error("Error fetching profile:", error);
+      console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
@@ -80,25 +58,17 @@ const Profile = () => {
 
   const fetchFollowStats = async (targetId) => {
     try {
-      // Followers count
       const { count: followers } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', targetId);
       setFollowersCount(followers || 0);
-
-      // Following count
       const { count: following } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', targetId);
       setFollowingCount(following || 0);
-
-      // Relationship check
       if (authUser && authUser.id !== targetId) {
-        const { data: followingData } = await supabase.from('follows').select('follower_id').eq('follower_id', authUser.id).eq('following_id', targetId).maybeSingle();
-        setIsFollowing(!!followingData);
-
-        const { data: followedByData } = await supabase.from('follows').select('follower_id').eq('follower_id', targetId).eq('following_id', authUser.id).maybeSingle();
-        setIsFollowedBy(!!followedByData);
+        const { data: fd } = await supabase.from('follows').select('follower_id').eq('follower_id', authUser.id).eq('following_id', targetId).maybeSingle();
+        setIsFollowing(!!fd);
+        const { data: fbd } = await supabase.from('follows').select('follower_id').eq('follower_id', targetId).eq('following_id', authUser.id).maybeSingle();
+        setIsFollowedBy(!!fbd);
       }
-    } catch (error) {
-      console.error("Error fetching follows", error);
-    }
+    } catch (error) { console.error('Error fetching follows', error); }
   };
 
   useEffect(() => {
@@ -107,37 +77,27 @@ const Profile = () => {
   }, [username, authUser, authProfile]);
 
   const handleFollowToggle = async () => {
-    if (!authUser) {
-      toast.error("Please login to follow users.");
-      return;
-    }
+    if (!authUser) { toast.error('Please login to follow users.'); return; }
     setIsFollowLoading(true);
     try {
       if (isFollowing) {
         await supabase.from('follows').delete().eq('follower_id', authUser.id).eq('following_id', profile.id);
         setIsFollowing(false);
-        setFollowersCount(prev => prev - 1);
+        setFollowersCount(p => p - 1);
       } else {
         await supabase.from('follows').insert({ follower_id: authUser.id, following_id: profile.id });
-        await supabase.from('notifications').insert({
-          user_id: profile.id,
-          sender_id: authUser.id,
-          type: 'follow'
-        });
+        await supabase.from('notifications').insert({ user_id: profile.id, sender_id: authUser.id, type: 'follow' });
         setIsFollowing(true);
-        setFollowersCount(prev => prev + 1);
+        setFollowersCount(p => p + 1);
       }
-    } catch (error) {
-      toast.error("Failed to update follow status.");
-    } finally {
-      setIsFollowLoading(false);
-    }
+    } catch { toast.error('Failed to update follow status.'); }
+    finally { setIsFollowLoading(false); }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="flex justify-center items-center h-[50vh] bg-lekho-base">
+        <Loader2 className="w-8 h-8 animate-spin text-lekho-primary-light" />
       </div>
     );
   }
@@ -145,43 +105,43 @@ const Profile = () => {
   if (!profile) return null;
 
   return (
-    <div className="bg-white min-h-screen border-r border-gray-100 pb-20 sm:pb-0">
+    <div className="bg-lekho-base min-h-screen pb-20 sm:pb-0">
       {/* Cover Image */}
-      <div className="h-48 sm:h-64 w-full bg-slate-900 overflow-hidden relative group">
+      <div className="h-44 sm:h-56 w-full overflow-hidden relative">
         {profile.cover_url ? (
-          <img 
-            src={profile.cover_url} 
-            alt="Cover" 
-            className="w-full h-full object-cover opacity-90"
-          />
+          <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover opacity-90" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-r from-slate-800 to-slate-900" />
+          <div className="w-full h-full bg-gradient-lekho opacity-60" style={{ backgroundSize: '200% 200%', animation: 'gradientShift 8s ease infinite' }} />
         )}
+        {/* Gradient overlay at bottom for smooth blend */}
+        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-lekho-base to-transparent" />
       </div>
 
-      <div className="px-6 sm:px-8 max-w-4xl mx-auto">
-        {/* Profile Header section */}
-        <div className="relative flex justify-between items-end -mt-16 sm:-mt-20 mb-6 flex-wrap gap-4">
-          <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] border-4 border-white bg-blue-100 flex items-center justify-center font-bold text-blue-700 text-5xl overflow-hidden shadow-sm shrink-0 relative z-10">
+      <div className="px-5 sm:px-8 max-w-4xl mx-auto">
+        {/* Profile Header */}
+        <div className="relative flex justify-between items-end -mt-14 sm:-mt-16 mb-6 flex-wrap gap-4">
+          {/* Avatar */}
+          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-[1.75rem] border-4 border-lekho-base bg-gradient-lekho-soft flex items-center justify-center font-bold text-lekho-primary-light text-4xl overflow-hidden shadow-glow-purple shrink-0 relative z-10">
             {profile.avatar_url ? (
               <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" />
             ) : (
               profile.username?.charAt(0).toUpperCase()
             )}
           </div>
-          
-          <div className="flex flex-wrap gap-3 sm:mb-6 z-10 w-full sm:w-auto mt-4 sm:mt-0">
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 sm:mb-4 z-10 w-full sm:w-auto mt-3 sm:mt-0">
             {isOwnProfile ? (
               <div className="flex gap-2 w-full sm:w-auto">
-                <button 
+                <button
                   onClick={() => setIsEditModalOpen(true)}
-                  className="flex-1 sm:flex-none bg-gray-100 hover:bg-gray-200 text-gray-900 px-6 py-2.5 rounded-full font-semibold transition-colors flex justify-center items-center"
+                  className="flex-1 sm:flex-none bg-white/[0.08] hover:bg-white/[0.13] border border-white/[0.12] text-lekho-text px-5 py-2.5 rounded-full font-semibold text-sm transition-all flex justify-center items-center"
                 >
                   Edit Profile
                 </button>
-                <button 
+                <button
                   onClick={signOut}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 font-semibold transition-all"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-white/[0.08] text-lekho-muted hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/30 font-semibold text-sm transition-all"
                   title="Log out"
                 >
                   <LogOut className="w-4 h-4" />
@@ -191,24 +151,26 @@ const Profile = () => {
             ) : (
               <div className="flex gap-2 w-full sm:w-auto">
                 {isFollowing && isFollowedBy && (
-                  <button 
+                  <button
                     onClick={() => navigate(`/messages/${profile.username}`)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 border border-blue-600 text-blue-600 hover:bg-blue-50 px-6 py-2.5 rounded-full font-semibold transition-colors"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 border border-lekho-primary/40 text-lekho-primary-light hover:bg-lekho-primary/10 px-5 py-2.5 rounded-full font-semibold text-sm transition-all"
                   >
-                    <MessageCircle className="w-5 h-5" /> Message
+                    <MessageCircle className="w-4 h-4" /> Message
                   </button>
                 )}
-                <button 
+                <button
                   onClick={handleFollowToggle}
                   disabled={isFollowLoading}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-2.5 rounded-full font-semibold transition-colors disabled:opacity-70 ${
-                    isFollowing 
-                      ? 'bg-gray-100 text-gray-900 hover:bg-red-50 hover:text-red-600' 
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-7 py-2.5 rounded-full font-bold text-sm transition-all disabled:opacity-60 ${
+                    isFollowing
+                      ? 'bg-white/[0.08] border border-white/[0.1] text-lekho-text hover:text-rose-400 hover:border-rose-500/30'
+                      : 'bg-gradient-lekho text-white shadow-glow-purple hover:opacity-90'
                   }`}
                 >
-                  {isFollowLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                     isFollowing ? <><UserCheck className="w-5 h-5" /> Following</> : <><UserPlus className="w-5 h-5" /> Follow</>
+                  {isFollowLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                    isFollowing
+                      ? <><UserCheck className="w-4 h-4" /> Following</>
+                      : <><UserPlus className="w-4 h-4" /> Follow</>
                   )}
                 </button>
               </div>
@@ -217,97 +179,102 @@ const Profile = () => {
         </div>
 
         {/* Profile Info */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 font-bengali">{profile.full_name || profile.username}</h1>
-          <p className="text-gray-500 text-lg">@{profile.username}</p>
-          
-          <div className="mt-4 max-w-2xl">
-            <p className="text-gray-800 text-lg leading-relaxed font-bengali whitespace-pre-wrap">
-              {profile.bio || (isOwnProfile ? "Add a bio to tell people about yourself..." : "No bio provided.")}
+        <div className="mb-7">
+          <h1 className="text-2xl font-bold text-lekho-text font-bengali">{profile.full_name || profile.username}</h1>
+          <p className="text-lekho-muted mt-0.5">@{profile.username}</p>
+
+          <div className="mt-3 max-w-2xl">
+            <p className="text-lekho-text/80 leading-relaxed font-bengali">
+              {profile.bio || (isOwnProfile ? 'Add a bio to tell people about yourself...' : 'No bio provided.')}
             </p>
           </div>
 
-          <div className="flex flex-wrap text-gray-500 mt-4 gap-y-2 gap-x-6 text-sm">
-            <div className="flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-pointer">
-              <LinkIcon className="w-4 h-4" />
-              <span>{isOwnProfile ? 'lexo.app/' + profile.username : 'lexo.app/' + profile.username}</span>
+          <div className="flex flex-wrap text-lekho-muted mt-3 gap-y-2 gap-x-5 text-sm">
+            <div className="flex items-center gap-1.5 hover:text-lekho-primary-light transition-colors cursor-pointer">
+              <LinkIcon className="w-3.5 h-3.5" />
+              <span>lekho.app/{profile.username}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-3.5 h-3.5" />
               <span>Joined {format(new Date(profile.created_at), 'MMMM yyyy')}</span>
             </div>
           </div>
 
-          <div className="flex gap-6 mt-6">
-            <div className="hover:underline cursor-pointer group rounded-lg transition-colors py-1">
-              <span className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{followingCount}</span> <span className="text-gray-500">Following</span>
+          {/* Follow Stats */}
+          <div className="flex gap-6 mt-5">
+            <div className="cursor-pointer group">
+              <span className="font-bold text-lekho-text text-lg group-hover:text-lekho-primary-light transition-colors">{followingCount}</span>
+              <span className="text-lekho-muted ml-1.5 text-sm">Following</span>
             </div>
-            <div className="hover:underline cursor-pointer group rounded-lg transition-colors py-1">
-              <span className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{followersCount}</span> <span className="text-gray-500">Followers</span>
+            <div className="cursor-pointer group">
+              <span className="font-bold text-lekho-text text-lg group-hover:text-lekho-primary-light transition-colors">{followersCount}</span>
+              <span className="text-lekho-muted ml-1.5 text-sm">Followers</span>
             </div>
             {isFollowedBy && !isOwnProfile && (
               <div className="flex items-center">
-                <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-1 rounded-md">Follows you</span>
+                <span className="bg-lekho-primary/15 text-lekho-primary-light text-xs font-bold px-2.5 py-1 rounded-lg border border-lekho-primary/25">
+                  Follows you
+                </span>
               </div>
             )}
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-100 flex gap-8">
+        <div className="border-b border-white/[0.07] flex gap-6">
           {['Posts', 'Media', 'Liked', 'Articles'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`pb-4 text-base font-medium transition-colors relative ${
-                activeTab === tab ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'
+              className={`pb-4 text-sm font-semibold transition-colors relative ${
+                activeTab === tab ? 'text-lekho-primary-light' : 'text-lekho-muted hover:text-lekho-text'
               }`}
             >
               {tab}
               {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full" />
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-lekho rounded-t-full" />
               )}
             </button>
           ))}
         </div>
 
         {/* Tab Content */}
-        <div className="mt-6">
+        <div className="mt-4">
           {activeTab === 'Posts' && (
-            <div className="space-y-0">
+            <div>
               {posts.length > 0 ? (
                 posts.map(post => (
-                    <div key={post.id} className="-mx-6 sm:-mx-8">
-                      <PostCard 
-                        post={post} 
-                        onDelete={(deletedId) => setPosts(prev => prev.filter(p => p.id !== deletedId))}
-                        onUpdate={(updatedData) => setPosts(prev => prev.map(p => p.id === updatedData.id ? updatedData : p))}
-                      />
-                    </div>
+                  <div key={post.id} className="-mx-5 sm:-mx-8">
+                    <PostCard
+                      post={post}
+                      onDelete={(deletedId) => setPosts(p => p.filter(x => x.id !== deletedId))}
+                      onUpdate={(updated) => setPosts(p => p.map(x => x.id === updated.id ? updated : x))}
+                    />
+                  </div>
                 ))
               ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <div className="bg-gray-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100 shadow-sm">
-                    <span className="text-4xl text-gray-300">📝</span>
+                <div className="text-center py-14">
+                  <div className="w-20 h-20 rounded-2xl bg-lekho-primary/10 border border-lekho-primary/20 flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">📝</span>
                   </div>
-                  <p className="text-lg">No posts yet.</p>
+                  <p className="text-lekho-muted">No posts yet.</p>
                 </div>
               )}
             </div>
           )}
 
           {activeTab !== 'Posts' && (
-            <div className="text-center py-12 text-gray-500">
-              <p className="text-lg">Nothing to show here yet.</p>
+            <div className="text-center py-14">
+              <p className="text-lekho-muted">Nothing to show here yet.</p>
             </div>
           )}
         </div>
       </div>
 
       {isEditModalOpen && (
-        <EditProfileModal 
-          isOpen={isEditModalOpen} 
-          onClose={() => setIsEditModalOpen(false)} 
+        <EditProfileModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
           currentProfile={profile}
           onUpdate={fetchProfileData}
         />
